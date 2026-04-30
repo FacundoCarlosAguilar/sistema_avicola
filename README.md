@@ -22,150 +22,103 @@ Sistema integral para control de producción avícola que permite registrar mort
 | **Reportes**               | Evolución de lotes y comparación entre lotes pasados/actuales       │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 
-## Arquitectura - Sistema (Backend y Frontend)
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                               SISTEMA AVÍCOLA - ARQUITECTURA                        │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+## Requisitos Previos (Lo que debes descargar)
 
-                                ┌─────────────────────────┐
-                                │   USUARIOS FINALES      │
-                                └─────────────────────────┘
-                                            │
-                  ┌─────────────────────────┼─────────────────────────┐
-                  │                                                   │
-                  ▼                                                   ▼
-            ┌───────────────┐                                 ┌───────────────┐        
-            │   SUPERVISOR  │                                 │    GRANJERO   │        
-            │   (PC/Web)    │                                 │   (PC/Web)    │        
-            └───────┬───────┘                                 └───────┬───────┘        
-                    │                                                 │
-                    │      Navegador Web            Navegador Web     │
-                    │      (Chrome/Edge)            (Chrome/Edge)     │
-                    └────────────────────────┼────────────────────────┘
-                                             │
-                                             │ HTTPS / API
-                                             │
-                    ┌────────────────────────┼────────────────────────┐
-                    │                        │                        │
-                    ▼                        ▼                        ▼
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   FRONTEND - REACT PWA                                        │
-├───────────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                               │
-│           ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐                   │
-│           │   COMPONENTES   │    │    SERVICIOS    │    │     HOOKS       │                   │
-│           │   React JSX     │    │                 │    │                 │                   │
-│           ├─────────────────┤    ├─────────────────┤    ├─────────────────┤                   │
-│           │ • Login         │    │ • api.js        │    │ • useAuth.js    │                   │
-│           │ • Dashboard     │    │ • offlineStorage│    │ • useOffline.js │                   │
-│           │ • Carga Diaria  │    │ • syncService   │    │ • useSync.js    │                   │
-│           │ • Reportes      │    │ • notification  │    │                 │                   │
-│           └─────────────────┘    └─────────────────┘    └─────────────────┘                   │
-│                                                                                               │
-│      ┌─────────────────────────────────────────────────────────────────────────────┐          │
-│      │                         ALMACENAMIENTO LOCAL (OFFLINE)                      │          │
-│      ├─────────────────────────────────────────────────────────────────────────────┤          │
-│      │                                                                             │          │
-│      │   ┌───────────────┐    ┌───────────────┐    ┌───────────────────────────┐   │          │
-│      │   │   IndexedDB   │    │ Service Worker│    │   Background Sync API     │   │          │
-│      │   │               │    │               │    │                           │   │          │
-│      │   │ • Datos       │    │ • Cache de    │    │ • Sincronización          │   │          │
-│      │   │   pendientes  │    │   recursos    │    │   automática              │   │          │
-│      │   │ • Registros   │    │ • Intercepta  │    │ • Cuando hay              │   │          │
-│      │   │   offline     │    │   peticiones  │    │   conexión                │   │          │
-│      │   └───────────────┘    └───────────────┘    └───────────────────────────┘   │          │
-│      │                                                                             │          │
-│      └─────────────────────────────────────────────────────────────────────────────┘          │
-│                                                                                               │
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
-                                             │
-                                             │ API REST (JSON)
-                                             │ HTTPS - Puerto 8000
-                                             │
-                    ┌────────────────────────┼────────────────────────┐
-                    │                        │                        │
-                    ▼                        ▼                        ▼
-┌───────────────────────────────────────────────────────────────────────────────────────────────┐
-│                              BACKEND - FASTAPI (PYTHON)                                       │
-├───────────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                               │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐          │
-│   │                                ROUTERS (ENDPOINTS)                             │          │
-│   ├───────────────┬───────────────┬───────────────┬────────────────────────────────┤          │
-│   │ /auth         │ /granjas      │ /lotes        │ /control                       │          │
-│   │ • login       │ • listar      │ • crear       │ • registrar mortandad          │          │
-│   │ • register    │ • crear       │ • editar      │ • calcular alimento            │          │
-│   │ • logout      │ • eliminar    │ • historial   │ • listar controles             │          │
-│   ├───────────────┼───────────────┼───────────────┼────────────────────────────────┤          │
-│   │ /sanidad      │ /reportes     │ /sync         │ /usuarios                      │          │
-│   │ • registrar   │ • evolucion   │ • sincronizar │ • listar                       │          │
-│   │ • vacunas     │ • comparativa │ • pendientes  │ • asignar rol                  │          │
-│   │ • medicacion  │ • exportar    │ • estado      │                                │          │
-│   └───────────────┴───────────────┴───────────────┴────────────────────────────────┘          │    
-│                                                                                               │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐          │
-│   │                           SERVICES (LÓGICA DE NEGOCIO)                         │          │
-│   ├───────────────┬───────────────┬───────────────┬────────────────────────────────┤          │
-│   │               │               │               │                                │          │
-│   │CalculoAlimento│ AuthService   │  LoteService  │  ReporteService                │          │
-│   │               │               │               │                                │          │
-│   │ • calcular()  │ • login()     │ • crear()     │ • generar()                    │          │
-│   │ • fases()     │ • verify()    │ • estado()    │ • comparar()                   │          │
-│   │ • consumo()   │ • token()     │ • historial() │ • exportar()                   │          │
-│   │               │               │               │                                │          │
-│   └───────────────┴───────────────┴───────────────┴────────────────────────────────┘          │
-│                                                                                               │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐          │
-│   │                                 MIDDLEWARE                                     │          │
-│   ├────────────────────────────────────────────────────────────────────────────────┤          │
-│   │ • Autenticación (JWT)    • CORS (Cross-Origin)   • Rate Limiting               │          │
-│   │ • Logging                • Compresión            • Timeout                     │          │
-│   └────────────────────────────────────────────────────────────────────────────────┘          │
-│                                                                                               │
-└───────────────────────────────────────────────────────────────────────────────────────────────┘
-                                             │
-                                             │ SQLAlchemy ORM
-                                             │ MySQL Connector
-                                             │
-                    ┌────────────────────────┼────────────────────────┐
-                    │                        │                        │
-                    ▼                        ▼                        ▼
-┌───────────────────────────────────────────────────────────────────────────────────────┐
-│                            BASE DE DATOS - MYSQL (HOSTINGER)                          │
-├───────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                       │
-│   ┌───────────────┐    ┌───────────────┐    ┌───────────────┐    ┌───────────────┐    │
-│   │   empresas    │    │    duenos     │    │   granjas     │    │   galpones    │    │
-│   ├───────────────┤    ├───────────────┤    ├───────────────┤    ├───────────────┤    │
-│   │ id            │    │ id            │    │ id            │    │ id            │    │
-│   │ nombre        │    │ nombre        │    │ nombre        │    │ nombre        │    │
-│   │ ruc           │    │ telefono      │    │ ubicacion     │    │ capacidad     │    │
-│   │ activo        │    │ email         │    │ id_dueno ─────┼────┤ id_granja ────|    |
-│   └───────────────┘    └───────────────┘    └───────────────┘    └───────────────┘    │
-│                                                                                       │
-│   ┌───────────────┐    ┌───────────────┐    ┌───────────────┐    ┌───────────────┐    │
-│   │    lotes      │    │control_diario │    │   sanidad     │    │   pesajes     │    │
-│   ├───────────────┤    ├───────────────┤    ├───────────────┤    ├───────────────┤    │
-│   │ id            │    │ id            │    │ id            │    │ id            │    │
-│   │ fecha_ingreso │    │ fecha         │    │ fecha         │    │ fecha_pesaje  │    │
-│   │ cantidad_aves │    │ mortandad     │    │ tipo          │    │ peso_promedio │    │
-│   │ proveedor     │    │ aves_vivas    │    │ producto      │    │ muestras      │    │
-│   │ activo        │    │ alimento_kg   │    │ dosis         │    │ id_lote ──────┼────┤
-│   │ id_galpon ────┼────┤ novedades     │    │ observaciones │    │               │    │
-│   └───────────────┘    │ id_lote ──────┼────┤ id_lote ──────┼────┤               │    │
-│                        └───────────────┘    └───────────────┘    └───────────────┘    │
-│                                                                                       │
-│   ┌───────────────┐    ┌───────────────┐    ┌───────────────┐                         │
-│   │ fases_consumo │    │   usuarios    │    │   faltantes   │                         │
-│   ├───────────────┤    ├───────────────┤    ├───────────────┤                         │
-│   │ id            │    │ id            │    │ id            │                         │
-│   │ edad_desde    │    │ nombre        │    │ insumo        │                         │
-│   │ edad_hasta    │    │ usuario       │    │ cantidad      │                         │
-│   │ consumo_gramos│    │ password_hash │    │ fecha         │                         │
-│   │ descripcion   │    │ perfil (rol)  │    │ estado        │                         │
-│   └───────────────┘    │ id_granja_asig│    │ id_granja ────┼────┐                    │
-│                        └───────────────┘    └───────────────┘    │                    │
-│                                    │                             │                    │
-│                                    │  (si es granjero)           │                    │
-│                                    └─────────────────────────────┘                    │
-└───────────────────────────────────────────────────────────────────────────────────────┘
+### 1. Python 3.11 o superior
+- **Descarga:** [python.org/downloads](https://python.org/downloads)
+- **Importante:** Marcar "Add Python to PATH" durante la instalación
+- **Verificar:** Abrir terminal y ejecutar `python --version`
+
+### 2. Node.js 18 o superior
+- **Descarga:** [nodejs.org](https://nodejs.org)
+- **Versión recomendada:** LTS (Long Term Support)
+- **Verificar:** Ejecutar `node --version` y `npm --version`
+
+### 3. MySQL (desarrollo local)
+- **Descarga:** [mysql.com/downloads](https://mysql.com/downloads)
+- **Alternativa:** Usar Hostinger (producción)
+- **Para pruebas locales:** Usar XAMPP o MySQL Workbench
+
+### 5. Visual Studio Code (editor)
+- **Descarga:** [code.visualstudio.com](https://code.visualstudio.com)
+- **Extensiones recomendadas:**
+  - Python (Microsoft)
+  - Pylance
+  - ESLint
+  - Prettier
+  - Thunder Client (para probar API)
+
+---
+
+## Instalación del Proyecto
+
+### Paso 1: Clonar o descargar el repositorio
+```bash
+
+# Con Git
+git clone https://github.com/FacundoCarlosAguilar/sistema_avicola.git
+cd sistema_avicola
+
+```
+## Paso 2: Abrir en Visual Studio Code
+```bash
+
+# Windows
+# Desde la terminal en la carpeta del proyecto
+code .
+
+```
+## Paso 3: Configurar Backend (Python/FastAPI)
+```bash
+
+# Visual Studio Code
+# Entrar a la carpeta backend
+cd backend
+
+# Crear entorno virtual
+python -m venv venv
+
+# Activar entorno virtual
+# Windows:
+venv\Scripts\activate
+
+# Instalar dependencias
+pip install -r requirements.txt
+
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env
+
+# Ejecutar el servidor backend
+uvicorn app.main:app --reload --port 8000
+
+```
+
+## Paso 4: Configurar Frontend (React)
+```bash
+
+# Abrir una NUEVA terminal (mantener backend corriendo)
+# Ir a la carpeta frontend
+cd frontend
+
+# Instalar dependencias
+npm install
+
+# Ejecutar el servidor frontend
+npm start
+
+```
+
+## Paso 5: Configurar Base de Datos (USO LOCAL)
+```bash
+
+## Descargar XAMPP o MySQL Server
+Iniciar MySQL (XAMPP o servicio local)
+
+## Creación de base de datos local
+Crear base de datos: CREATE DATABASE sistema_avicola;
+
+## Actualizar el archivo .env con usuario y contraseña local
+Configurar .env con usuario root y contraseña vacía
+
+```
