@@ -1,5 +1,16 @@
 # Diagrama - Estructura
 
+## Características Principales
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+| Módulo                     | Descripción                                                         │
+|----------------------------|---------------------------------------------------------------------│
+| **Control Diario**         | Registro de mortandad por galpón con cálculo automático de alimento │
+| **Trazabilidad Sanitaria** | Registro de vacunas, medicación y pesaje semanal                    │
+| **Gestión de Roles**       | Supervisor (acceso total) y Granjero (carga limitada)               │
+| **Sincronización Offline** | Funciona sin internet, sincroniza automáticamente                   │
+| **Reportes**               | Evolución de lotes y comparación entre lotes pasados/actuales       │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+
 ## Arquitectura - Sistema (Backend y Frontend)
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
 │                               SISTEMA AVÍCOLA - ARQUITECTURA                        │

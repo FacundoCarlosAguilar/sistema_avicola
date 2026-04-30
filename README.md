@@ -11,18 +11,7 @@
 ## Descripción
 Sistema integral para control de producción avícola que permite registrar mortandad, calcular alimento automáticamente por edad del lote, gestionar trazabilidad sanitaria y generar reportes comparativos. Arquitectura web con capacidad offline que sincroniza datos automáticamente al recuperar conexión.
 
-## Características Principales
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-| Módulo                     | Descripción                                                         │
-|----------------------------|---------------------------------------------------------------------│
-| **Control Diario**         | Registro de mortandad por galpón con cálculo automático de alimento │
-| **Trazabilidad Sanitaria** | Registro de vacunas, medicación y pesaje semanal                    │
-| **Gestión de Roles**       | Supervisor (acceso total) y Granjero (carga limitada)               │
-| **Sincronización Offline** | Funciona sin internet, sincroniza automáticamente                   │
-| **Reportes**               | Evolución de lotes y comparación entre lotes pasados/actuales       │
-└──────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-## Requisitos Previos (Lo que debes descargar)
+## Requisitos Previos
 
 ### 1. Python 3.11 o superior
 - **Descarga:** [python.org/downloads](https://python.org/downloads)
@@ -34,7 +23,7 @@ Sistema integral para control de producción avícola que permite registrar mort
 - **Versión recomendada:** LTS (Long Term Support)
 - **Verificar:** Ejecutar `node --version` y `npm --version`
 
-### 3. MySQL (desarrollo local)
+### 3. MySQL (local)
 - **Descarga:** [mysql.com/downloads](https://mysql.com/downloads)
 - **Alternativa:** Usar Hostinger (producción)
 - **Para pruebas locales:** Usar XAMPP o MySQL Workbench
