@@ -8,6 +8,8 @@
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-orange)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+---
+
 ## Descripción
 Sistema integral para control de producción avícola que permite registrar mortandad, calcular alimento automáticamente por edad del lote, gestionar trazabilidad sanitaria y generar reportes comparativos. Arquitectura web con capacidad offline que sincroniza datos automáticamente al recuperar conexión.
 
