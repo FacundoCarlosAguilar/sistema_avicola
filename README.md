@@ -39,7 +39,18 @@ Sistema integral para control de producción avícola que permite registrar mort
 
 ---
 
-## Instalación del Proyecto
+## (IMPORNTANTE) - Instalación de dependencias en el backend
+
+# Instalar python-dotenv (para leer .env)
+pip install python-dotenv
+
+# Verificar que mysql-connector está instalado
+pip install mysql-connector-python
+
+# Actualizar requirements.txt
+pip freeze > requirements.txt
+
+---
 
 ### Paso 1: Clonar o descargar el repositorio
 ```bash
