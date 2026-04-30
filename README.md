@@ -1,6 +1,5 @@
 # Sistema de Gestión Avícola
 
-## Recursos a descargar:
 ![Python](https://img.shields.io/badge/Python-3.11-blue)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green)
 ![React](https://img.shields.io/badge/React-18.x-cyan)
@@ -9,53 +8,67 @@
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## Descripción
+
 Sistema integral para control de producción avícola que permite registrar mortandad, calcular alimento automáticamente por edad del lote, gestionar trazabilidad sanitaria y generar reportes comparativos. Arquitectura web con capacidad offline que sincroniza datos automáticamente al recuperar conexión.
+
+---
 
 ## Requisitos Previos
 
-### 1. Python 3.11 o superior
-- **Descarga:** [python.org/downloads](https://python.org/downloads)
-- **Importante:** Marcar "Add Python to PATH" durante la instalación
-- **Verificar:** Abrir terminal y ejecutar `python --version`
+| Software    | Versión   | Descarga                                               | Verificación       |
+|-------------|-----------|--------------------------------------------------------|--------------------|
+| **Python**  | 3.11+     | [python.org](https://python.org/downloads)             | `python --version` |
+| **Node.js** | 18+ (LTS) | [nodejs.org](https://nodejs.org)                       | `node --version`   |
+| **Git**     | Última    | [git-scm.com](https://git-scm.com)                     | `git --version`    |
+| **VS Code** | Última    | [code.visualstudio.com](https://code.visualstudio.com) |                    |
 
-### 2. Node.js 18 o superior
-- **Descarga:** [nodejs.org](https://nodejs.org)
-- **Versión recomendada:** LTS (Long Term Support)
-- **Verificar:** Ejecutar `node --version` y `npm --version`
+> **Importante Python:** Marcar "Add Python to PATH" durante la instalación.
 
-### 3. MySQL (local)
-- **Descarga:** [mysql.com/downloads](https://mysql.com/downloads)
-- **Alternativa:** Usar Hostinger (producción)
-- **Para pruebas locales:** Usar XAMPP o MySQL Workbench
+### Extensiones de Visual Studio Code
 
-### 5. Visual Studio Code (editor)
-- **Descarga:** [code.visualstudio.com](https://code.visualstudio.com)
-- **Extensiones recomendadas:**
-  - Python (Microsoft)
-  - Pylance
-  - ESLint
-  - Prettier
-  - Thunder Client (para probar API)
+- Python (Microsoft)
+- Pylance
+- ESLint
+- Prettier
+- Thunder Client (API)
 
 ---
 
-## (IMPORNTANTE) - Instalación de dependencias en el backend
+## Estructura de Archivos
 
-# Instalar python-dotenv (para leer .env)
-pip install python-dotenv
+backend/app/
+├── models.py          # Modelos SQLAlchemy
+├── schemas.py         # Esquemas Pydantic
+├── database.py        # Conexión a base de datos
+├── routers/
+│   ├── auth.py        # Login/registro
+│   ├── granjas.py     # CRUD granjas
+│   ├── galpones.py    # CRUD galpones
+│   ├── lotes.py       # CRUD lotes
+│   └── control.py     # Mortandad y alimento
+└── services/
+    └── calculo_alimento.py
 
-# Verificar que mysql-connector está instalado
-pip install mysql-connector-python
-
-# Actualizar requirements.txt
-pip freeze > requirements.txt
+frontend/src/
+├── App.jsx           # Rutas principales
+├── main.jsx          # Punto de entrada
+├── components/
+│   ├── Login.jsx     # Login de usuarios
+│   ├── DashboardSupervisor.jsx  # Dashboard de supervisor
+│   └── DashboardGranjero.jsx    # Dashboard de granjero
+├── services/
+│   ├── api.js        # Axios config
+│   └── auth.js       # Auth service
+└── context/
+    └── AuthContext.jsx
 
 ---
 
-### Paso 1: Clonar o descargar el repositorio
+## Instalación del Proyecto
+
+### Paso 1: Clonar el repositorio
+
 ```bash
-
-# Con Git
 git clone https://github.com/FacundoCarlosAguilar/sistema_avicola.git
 cd sistema_avicola
 
@@ -63,7 +76,6 @@ cd sistema_avicola
 ## Paso 2: Abrir en Visual Studio Code
 ```bash
 
-# Windows
 # Desde la terminal en la carpeta del proyecto
 code .
 
@@ -72,22 +84,25 @@ code .
 ```bash
 
 # Visual Studio Code
-# Entrar a la carpeta backend
 cd backend
 
 # Crear entorno virtual
 python -m venv venv
 
-# Activar entorno virtual
-# Windows:
-venv\Scripts\activate
+# Activar entorno virtual (Windows PowerShell)
+.\venv\Scripts\Activate.ps1
+
+# En caso de error al activar, ejecutar:
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
 
 # Instalar dependencias
 pip install -r requirements.txt
 
 # Configurar variables de entorno
 cp .env.example .env
-# Editar .env
+
+# Activar el entorno virtual
+.\venv\Scripts\Activate.ps1
 
 # Ejecutar el servidor backend
 uvicorn app.main:app --reload --port 8000
@@ -98,14 +113,13 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 
 # Abrir una NUEVA terminal (mantener backend corriendo)
-# Ir a la carpeta frontend
 cd frontend
 
 # Instalar dependencias
 npm install
 
 # Ejecutar el servidor frontend
-npm start
+npm run dev
 
 ```
 
@@ -120,5 +134,15 @@ Crear base de datos: CREATE DATABASE sistema_avicola;
 
 ## Actualizar el archivo .env con usuario y contraseña local
 Configurar .env con usuario root y contraseña vacía
+
+```
+
+## Accesos a la API
+```bash
+
+## Endpoints para accesos a la API
+Frontend: http://localhost:5173
+Backend: http://localhost:8000
+Documentación: http://localhost:8000/docs
 
 ```
