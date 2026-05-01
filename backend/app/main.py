@@ -1,7 +1,11 @@
-﻿from fastapi import FastAPI
+﻿from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .database import test_connection
 import mysql.connector
+from pydantic import BaseModel
+from datetime import datetime, timedelta
+import jwt
+import hashlib
 
 app = FastAPI(title="Sistema Avícola API", version="1.0.0")
 
@@ -22,6 +26,61 @@ def get_db_connection():
         database="u481307435_sistema_av"
     )
 
+# ============ MODELOS PARA LOGIN ============
+class LoginRequest(BaseModel):
+    usuario: str
+    password: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    rol: str
+    nombre: str
+
+# ============ CONFIGURACIÓN JWT ============
+SECRET_KEY = "mi_clave_secreta_para_jwt"
+ALGORITHM = "HS256"
+
+def crear_token(usuario_id: int, rol: str, nombre: str):
+    payload = {
+        "user_id": usuario_id,
+        "rol": rol,
+        "nombre": nombre,
+        "exp": datetime.utcnow() + timedelta(hours=8)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+# ============ ENDPOINT DE LOGIN ============
+@app.post("/auth/login", response_model=LoginResponse)
+def login(request: LoginRequest):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    
+    cursor.execute(
+        "SELECT id, nombre, usuario, password_hash, perfil FROM usuarios WHERE usuario = %s",
+        (request.usuario,)
+    )
+    usuario = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+    
+    # Verificar contraseña (temporal - comparación directa)
+    if request.password != usuario['password_hash']:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+    
+    token = crear_token(usuario['id'], usuario['perfil'], usuario['nombre'])
+    
+    return LoginResponse(
+        access_token=token,
+        token_type="bearer",
+        rol=usuario['perfil'],
+        nombre=usuario['nombre']
+    )
+
+# ============ ENDPOINTS DE PRUEBA ============
 @app.get("/api/ver-datos")
 def ver_datos():
     conn = get_db_connection()
@@ -68,10 +127,10 @@ def ver_lotes():
     conn.close()
     return lotes
 
-
+# ============ ENDPOINTS PRINCIPALES ============
 @app.on_event("startup")
 async def startup():
-    print("Iniciando Sistema Avícola API")
+    print("🚀 Iniciando Sistema Avícola API...")
     test_connection()
 
 @app.get("/")
