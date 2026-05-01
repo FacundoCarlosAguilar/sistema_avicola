@@ -89,6 +89,10 @@ cd backend
 # Crear entorno virtual
 python -m venv venv
 
+# En caso de error, puede deberse a restricciones del servicio protector de windows defender
+# para ello acceder a la seguridad de windows y desactivar windows defender (proteccion en tiempo real)
+# y volver a ejecutar el comando: python -m venv venv
+
 # Activar entorno virtual (Windows PowerShell)
 .\venv\Scripts\Activate.ps1
 
