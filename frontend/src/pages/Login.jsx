@@ -37,7 +37,7 @@ function Login() {
         <Container component="main" maxWidth="xs">
             <Paper elevation={3} sx={{ p: 4, mt: 8 }}>
                 <Typography variant="h5" align="center" gutterBottom>
-                    🐔 Sistema Avícola
+                Sistema Avícola
                 </Typography>
                 <Typography variant="body2" align="center" color="textSecondary" gutterBottom>
                     Iniciar Sesión
