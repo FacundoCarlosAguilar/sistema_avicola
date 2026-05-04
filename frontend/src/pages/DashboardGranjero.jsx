@@ -1,201 +1,274 @@
+// DashboardGranjero.jsx - VERSIÓN CORREGIDA
+import * as XLSX from 'xlsx';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Container, Grid, Card, CardContent, Typography, Box, IconButton,
     Avatar, Button, TextField, Alert, Chip, Divider, Paper, LinearProgress,
-    Table, TableBody, TableRow, TableCell
+    Tabs, Tab, CircularProgress
 } from '@mui/material';
 import {
     Logout as LogoutIcon,
     Save as SaveIcon,
     Schedule as ScheduleIcon,
-    WaterDrop as WaterIcon,
-    Thermostat as TempIcon,
     History as HistoryIcon,
     Warning as WarningIcon,
     CheckCircle as CheckCircleIcon,
     TrendingDown as TrendingDownIcon,
     Egg as EggIcon,
-    LocalDining as FoodIcon
+    LocalDining as FoodIcon,
+    Search as SearchIcon,
+    Download as DownloadIcon
 } from '@mui/icons-material';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../styles/theme';
+import { apiService } from '../services/apiService';
 
-// Componente de Tarjeta de Métricas
-const MetricCard = ({ title, value, icon: Icon, color, subtitle }) => (
-    <Card sx={{ height: '100%' }}>
-        <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="body2" color="textSecondary">
-                    {title}
-                </Typography>
-                <Icon sx={{ color: color }} />
-            </Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5 }}>
-                {value}
-            </Typography>
-            {subtitle && (
-                <Typography variant="caption" color="textSecondary">
-                    {subtitle}
-                </Typography>
+// ============================================
+// COMPONENTE DE HISTORIAL
+// ============================================
+const HistorialRegistros = () => {
+    const [fechaInicio, setFechaInicio] = useState('');
+    const [fechaFin, setFechaFin] = useState('');
+    const [registros, setRegistros] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [tipoRegistro, setTipoRegistro] = useState('mortalidad');
+
+    useEffect(() => {
+        const hoy = new Date();
+        const hace7Dias = new Date();
+        hace7Dias.setDate(hoy.getDate() - 7);
+        
+        setFechaFin(hoy.toISOString().split('T')[0]);
+        setFechaInicio(hace7Dias.toISOString().split('T')[0]);
+        
+        cargarRegistros();
+    }, []);
+
+    const cargarRegistros = async () => {
+        setLoading(true);
+        
+        try {
+            // Intentar cargar desde la API
+            const data = await apiService.obtenerRegistros(fechaInicio, fechaFin);
+            
+            if (data && data.length > 0) {
+                const formateados = data.map(reg => ({
+                    id: reg.id,
+                    fecha: reg.fecha,
+                    galpon: reg.galpon_nombre || 'Galpón Norte A',
+                    mortalidad: reg.mortandad || 0,
+                    alimento: reg.alimento_kg || 0,
+                    observaciones: reg.novedades || '-'
+                }));
+                setRegistros(formateados);
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBuscar = () => {
+        cargarRegistros();
+    };
+
+    const totalRegistros = registros.length;
+    const totalMortandad = registros.reduce((sum, r) => sum + (r.mortalidad || 0), 0);
+    const promedio = totalRegistros > 0 ? (totalMortandad / totalRegistros).toFixed(1) : 0;
+    const totalAlimento = registros.reduce((sum, r) => sum + (r.alimento || 0), 0);
+
+        // 👇 AGREGAR ESTA FUNCIÓN AQUÍ
+    const exportarExcel = () => {
+        const datosExportar = registros.map(reg => ({
+            'FECHA': reg.fecha,
+            'GALPÓN': reg.galpon,
+            'MORTANDAD (aves)': reg.mortalidad,
+            'ALIMENTO (kg)': reg.alimento,
+            'OBSERVACIONES': reg.observaciones
+        }));
+
+        const resumenExportar = [
+            ['ARGEAVE - SISTEMA AVÍCOLA'],
+            [''],
+            ['REPORTE DE REGISTROS DIARIOS'],
+            [''],
+            ['GRANJA:', 'Granja Norte'],
+            ['PERIODO:', `${fechaInicio} al ${fechaFin}`],
+            ['FECHA EXPORTACIÓN:', new Date().toLocaleString()],
+            [''],
+            ['INDICADORES'],
+            ['Total Registros:', totalRegistros],
+            ['Total Mortandad:', `${totalMortandad} aves`],
+            ['Total Alimento:', `${totalAlimento} kg`],
+            ['Promedio Mortandad Diaria:', `${promedio} aves/día`],
+        ];
+
+        const wb = XLSX.utils.book_new();
+        
+        const wsDatos = XLSX.utils.json_to_sheet(datosExportar);
+        XLSX.utils.book_append_sheet(wb, wsDatos, 'Registros Diarios');
+        
+        const wsResumen = XLSX.utils.aoa_to_sheet(resumenExportar);
+        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
+        
+        XLSX.writeFile(wb, `Reporte_Registros_${fechaInicio}_${fechaFin}.xlsx`);
+    };
+
+    return (
+        <Box>
+            <Paper sx={{ p: 2, mb: 3 }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Fecha Inicio"
+                            type="date"
+                            size="small"
+                            value={fechaInicio}
+                            onChange={(e) => setFechaInicio(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <TextField
+                            fullWidth
+                            label="Fecha Fin"
+                            type="date"
+                            size="small"
+                            value={fechaFin}
+                            onChange={(e) => setFechaFin(e.target.value)}
+                            InputLabelProps={{ shrink: true }}
+                        />
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                        <Button
+                            fullWidth
+                            variant="contained"
+                            startIcon={<SearchIcon />}
+                            onClick={handleBuscar}
+                        >
+                            Buscar
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Paper>
+
+                        {registros.length > 0 && (
+                <Paper sx={{ p: 2, mb: 3, bgcolor: '#f0fdf4' }}>
+                    <Grid container spacing={2} alignItems="center">
+                        <Grid item xs={3}>
+                            <Typography variant="caption" color="textSecondary">
+                                Total Registros
+                            </Typography>
+                            <Typography variant="h6">{totalRegistros}</Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                            <Typography variant="caption" color="textSecondary">
+                                Total Mortandad
+                            </Typography>
+                            <Typography variant="h6" color="error">
+                                {totalMortandad} aves
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                            <Typography variant="caption" color="textSecondary">
+                                Total Alimento
+                            </Typography>
+                            <Typography variant="h6" color="primary">
+                                {totalAlimento.toLocaleString()} kg
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={3}>
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                color="success"
+                                size="small"
+                                startIcon={<DownloadIcon />}
+                                onClick={exportarExcel}
+                            >
+                                Exportar Excel
+                            </Button>
+                        </Grid>
+                    </Grid>
+                    <Divider sx={{ my: 1 }} />
+                    <Grid container spacing={2}>
+                        <Grid item xs={12}>
+                            <Typography variant="caption" color="textSecondary">
+                                Promedio Diario: {promedio} aves/día
+                            </Typography>
+                        </Grid>
+                    </Grid>
+                </Paper>
             )}
-        </CardContent>
-    </Card>
-);
-
-// Componente de Header
-const Header = ({ nombre, offlineMode, onLogout }) => (
-    <Box sx={{ bgcolor: 'primary.main', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <Container maxWidth="xl">
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <EggIcon sx={{ fontSize: 28 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                            Avícola <span style={{ color: '#c6a43f' }}>Suite</span>
-                        </Typography>
-                    </Box>
-                    <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
-                    <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                        Módulo Granjero
-                    </Typography>
+            
+            {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress />
                 </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {offlineMode ? (
-                        <Chip icon={<WarningIcon />} label="Modo Offline" color="error" size="small" />
-                    ) : (
-                        <Chip icon={<CheckCircleIcon />} label="En línea" color="success" size="small" />
-                    )}
-                    <Chip 
-                        avatar={<Avatar sx={{ bgcolor: 'secondary.main' }}>{nombre?.charAt(0) || 'G'}</Avatar>}
-                        label={nombre || 'Granjero'}
-                        sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white' }}
-                    />
-                    <IconButton onClick={onLogout} sx={{ color: 'white' }}>
-                        <LogoutIcon />
-                    </IconButton>
-                </Box>
-            </Box>
-        </Container>
-    </Box>
-);
+            ) : (
+                <Paper sx={{ width: '100%', overflow: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead style={{ backgroundColor: '#f8fafc' }}>
+                            <tr>
+                                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Fecha</th>
+                                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Galpón</th>
+                                <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Mortandad</th>
+                                <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #e5e7eb' }}>Alimento (kg)</th>
+                                <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #e5e7eb' }}>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {registros.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} style={{ padding: '32px', textAlign: 'center' }}>
+                                        <Typography color="textSecondary">
+                                            No hay registros en el período seleccionado
+                                        </Typography>
+                                    </td>
+                                </tr>
+                            ) : (
+                                registros.map((reg) => (
+                                    <tr key={reg.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                        <td style={{ padding: '12px' }}>{reg.fecha}</td>
+                                        <td style={{ padding: '12px' }}>{reg.galpon}</td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            <Chip 
+                                                label={`${reg.mortalidad} aves`}
+                                                color={reg.mortalidad > 5 ? 'error' : 'default'}
+                                                size="small"
+                                            />
+                                        </td>
+                                        <td style={{ padding: '12px', textAlign: 'right' }}>
+                                            {reg.alimento} kg
+                                        </td>
+                                        <td style={{ padding: '12px' }}>{reg.observaciones}</td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </Paper>
+            )}
+        </Box>
+    );
+};
 
-// Componente de Lote Actual
-const LoteActualCard = ({ calculo, mortalidadPorcentaje }) => (
-    <Card>
-        <CardContent>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Lote Actual - Galpón Norte A
-                </Typography>
-                <Chip 
-                    label={`Día ${calculo?.edad_dias || 0} de 50`} 
-                    icon={<ScheduleIcon />} 
-                    color="primary" 
-                    variant="outlined"
-                />
-            </Box>
-            <Grid container spacing={3}>
-                <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" color="textSecondary">Aves iniciales</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        {calculo?.aves_iniciales?.toLocaleString()}
-                    </Typography>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" color="textSecondary">Aves actuales</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
-                        {calculo?.aves_vivas?.toLocaleString()}
-                    </Typography>
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" color="textSecondary">Mortalidad</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600, color: '#ef4444' }}>
-                        {mortalidadPorcentaje}%
-                    </Typography>
-                    <LinearProgress 
-                        variant="determinate" 
-                        value={parseFloat(mortalidadPorcentaje) || 0} 
-                        sx={{ mt: 1, height: 4, borderRadius: 2 }}
-                        color="error"
-                    />
-                </Grid>
-                <Grid item xs={6} sm={3}>
-                    <Typography variant="body2" color="textSecondary">FA completado</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                        62%
-                    </Typography>
-                    <LinearProgress 
-                        variant="determinate" 
-                        value={62} 
-                        sx={{ mt: 1, height: 4, borderRadius: 2 }}
-                        color="success"
-                    />
-                </Grid>
-            </Grid>
-        </CardContent>
-    </Card>
-);
-
-// Componente de Cálculo de Alimento
-const CalculoAlimentoCard = ({ calculo }) => (
-    <Card sx={{ height: '100%' }}>
-        <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <FoodIcon color="primary" />
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Cálculo de Alimento Automatizado
-                </Typography>
-            </Box>
-            <Divider sx={{ mb: 2 }} />
-            <Table size="small">
-                <TableBody>
-                    <TableRow>
-                        <TableCell component="th" scope="row">Aves vivas</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 500 }}>
-                            {calculo?.aves_vivas?.toLocaleString()}
-                        </TableCell>
-                    </TableRow>
-                    <TableRow>
-                        <TableCell component="th" scope="row">Edad del lote</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 500 }}>
-                            {calculo?.edad_dias} días
-                        </TableCell>
-                    </TableRow>
-                    <TableRow>
-                        <TableCell component="th" scope="row">Consumo por ave</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 500 }}>
-                            {calculo?.consumo_por_ave} g/día
-                        </TableCell>
-                    </TableRow>
-                    <TableRow sx={{ bgcolor: '#f8fafc' }}>
-                        <TableCell component="th" scope="row">
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                                Alimento requerido hoy
-                            </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                            <Typography variant="h6" sx={{ fontWeight: 700, color: '#c6a43f' }}>
-                                {calculo?.alimento_requerido?.toLocaleString()} kg
-                            </Typography>
-                        </TableCell>
-                    </TableRow>
-                </TableBody>
-            </Table>
-        </CardContent>
-    </Card>
-);
-
-// Componente de Formulario Registro Diario
+// ============================================
+// COMPONENTE DE REGISTRO DIARIO
+// ============================================
 const RegistroDiarioForm = ({ 
-    mortandad, setMortandad, 
-    alimento, setAlimento, 
-    novedades, setNovedades,
+    mortandad, 
+    setMortandad, 
+    alimento, 
+    setAlimento, 
+    novedades, 
+    setNovedades,
     calculo,
     sincronizando,
     onSubmit 
 }) => (
-    <Card sx={{ height: '100%' }}>
+    <Card>
         <CardContent>
             <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
                 Registro Diario
@@ -210,9 +283,7 @@ const RegistroDiarioForm = ({
                     margin="normal"
                     required
                     placeholder="0"
-                    InputProps={{
-                        startAdornment: <TrendingDownIcon sx={{ mr: 1, color: '#ef4444' }} />
-                    }}
+                    helperText="Ingrese el número de aves muertas hoy"
                 />
                 <TextField
                     fullWidth
@@ -223,9 +294,6 @@ const RegistroDiarioForm = ({
                     margin="normal"
                     required
                     helperText={`Requerido: ${calculo?.alimento_requerido?.toLocaleString() || 0} kg`}
-                    InputProps={{
-                        startAdornment: <FoodIcon sx={{ mr: 1, color: '#c6a43f' }} />
-                    }}
                 />
                 <TextField
                     fullWidth
@@ -242,7 +310,6 @@ const RegistroDiarioForm = ({
                     fullWidth
                     variant="contained"
                     size="large"
-                    startIcon={sincronizando ? <ScheduleIcon /> : <SaveIcon />}
                     disabled={sincronizando}
                     sx={{ mt: 3, py: 1.5, textTransform: 'none', borderRadius: 2 }}
                 >
@@ -253,131 +320,10 @@ const RegistroDiarioForm = ({
     </Card>
 );
 
-// Componente de Condiciones Galpón
-const CondicionesGalponCard = ({ calculo }) => (
-    <Card sx={{ height: '100%' }}>
-        <CardContent>
-            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                Condiciones del Galpón
-            </Typography>
-            <Grid container spacing={2}>
-                <Grid item xs={6}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 2, 
-                        p: 1.5, 
-                        bgcolor: '#fef3c7', 
-                        borderRadius: 2 
-                    }}>
-                        <TempIcon sx={{ color: '#d97706' }} />
-                        <Box>
-                            <Typography variant="caption" color="textSecondary">Temperatura</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>{calculo?.temperatura}°C</Typography>
-                        </Box>
-                    </Box>
-                </Grid>
-                <Grid item xs={6}>
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 2, 
-                        p: 1.5, 
-                        bgcolor: '#dbeafe', 
-                        borderRadius: 2 
-                    }}>
-                        <WaterIcon sx={{ color: '#2563eb' }} />
-                        <Box>
-                            <Typography variant="caption" color="textSecondary">Humedad</Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>{calculo?.humedad}%</Typography>
-                        </Box>
-                    </Box>
-                </Grid>
-            </Grid>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Box>
-                    <Typography variant="body2" color="textSecondary">Próximo pesaje</Typography>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                        {calculo?.proximoPesaje}
-                    </Typography>
-                </Box>
-                <Button 
-                    size="small" 
-                    startIcon={<HistoryIcon />}
-                    sx={{ textTransform: 'none' }}
-                >
-                    Ver Historial
-                </Button>
-            </Box>
-        </CardContent>
-    </Card>
-);
-
-// Componente de Últimos Registros
-const UltimosRegistrosCard = () => {
-    const registros = [
-        { fecha: '2026-04-30', mortandad: 3, alimento: 1650, dia: 25 },
-        { fecha: '2026-04-29', mortandad: 2, alimento: 1640, dia: 24 },
-        { fecha: '2026-04-28', mortandad: 4, alimento: 1620, dia: 23 },
-        { fecha: '2026-04-27', mortandad: 1, alimento: 1610, dia: 22 },
-    ];
-
-    return (
-        <Card sx={{ height: '100%' }}>
-            <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                    Últimos Registros
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                    {registros.map((reg, idx) => (
-                        <Paper 
-                            key={idx} 
-                            elevation={0}
-                            sx={{ 
-                                display: 'flex', 
-                                justifyContent: 'space-between', 
-                                alignItems: 'center', 
-                                p: 1.5,
-                                mb: 1,
-                                bgcolor: '#f8fafc',
-                                borderRadius: 2
-                            }}
-                        >
-                            <Box>
-                                <Typography variant="body2" color="textSecondary">
-                                    {reg.fecha}
-                                </Typography>
-                                <Typography variant="caption" color="textSecondary">
-                                    Día {reg.dia}
-                                </Typography>
-                            </Box>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                <Chip 
-                                    label={`🪦 ${reg.mortandad}`} 
-                                    size="small" 
-                                    variant="outlined"
-                                    color="error"
-                                />
-                                <Chip 
-                                    label={`🍗 ${reg.alimento} kg`} 
-                                    size="small" 
-                                    variant="outlined"
-                                    color="primary"
-                                />
-                            </Box>
-                        </Paper>
-                    ))}
-                </Box>
-            </CardContent>
-        </Card>
-    );
-};
-
-// Componente Principal
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
 function DashboardGranjero() {
-    // Estados
     const [mortandad, setMortandad] = useState('');
     const [alimento, setAlimento] = useState('');
     const [novedades, setNovedades] = useState('');
@@ -385,16 +331,55 @@ function DashboardGranjero() {
     const [mensaje, setMensaje] = useState(null);
     const [sincronizando, setSincronizando] = useState(false);
     const [offlineMode, setOfflineMode] = useState(!navigator.onLine);
+    const [tabValue, setTabValue] = useState(0);
     
     const nombre = localStorage.getItem('nombre') || 'Granjero';
     const navigate = useNavigate();
+    
     const mortalidadPorcentaje = calculo 
         ? ((calculo.mortalidad_acumulada / calculo.aves_iniciales) * 100).toFixed(1)
         : '0';
 
-    // Efectos
-    useEffect(() => {
-        // Datos mock del lote
+        // Función para cargar datos reales desde Hostinger
+const cargarDatosReales = async () => {
+    try {
+        const loteActivo = await apiService.obtenerLoteActivo(1);
+        
+        if (loteActivo && loteActivo.existe) {
+            const lote = loteActivo.lote;
+            const avesVivas = lote.cantidad_aves - loteActivo.total_muertes;
+            const dias = Math.floor((new Date() - new Date(lote.fecha_ingreso)) / (1000 * 60 * 60 * 24));
+            
+            setCalculo({
+                aves_vivas: avesVivas,
+                aves_iniciales: lote.cantidad_aves,
+                edad_dias: dias > 0 ? dias : 1,
+                consumo_por_ave: 180,
+                alimento_requerido: Math.round(avesVivas * 0.180),
+                fecha: new Date().toLocaleDateString(),
+                mortalidad_acumulada: loteActivo.total_muertes,
+                conversion: 1.82,
+                temperatura: 28,
+                humedad: 65
+            });
+        } else {
+            // Datos por defecto si no hay lote activo
+            setCalculo({
+                aves_vivas: 9980,
+                aves_iniciales: 10000,
+                edad_dias: 25,
+                consumo_por_ave: 180,
+                alimento_requerido: 1764,
+                fecha: new Date().toLocaleDateString(),
+                mortalidad_acumulada: 20,
+                conversion: 1.82,
+                temperatura: 28,
+                humedad: 65
+            });
+        }
+    } catch (error) {
+        console.error('Error cargando datos:', error);
+        // Datos por defecto en caso de error
         setCalculo({
             aves_vivas: 9980,
             aves_iniciales: 10000,
@@ -402,27 +387,29 @@ function DashboardGranjero() {
             consumo_por_ave: 180,
             alimento_requerido: 1764,
             fecha: new Date().toLocaleDateString(),
-            proximoPesaje: '2026-05-05',
-            temperatura: 28,
-            humedad: 65,
             mortalidad_acumulada: 20,
-            conversion: 1.82
+            conversion: 1.82,
+            temperatura: 28,
+            humedad: 65
         });
+    }
+};
 
-        // Listeners de conexión
-        const handleOnline = () => setOfflineMode(false);
-        const handleOffline = () => setOfflineMode(true);
-        
-        window.addEventListener('online', handleOnline);
-        window.addEventListener('offline', handleOffline);
-        
-        return () => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-        };
-    }, []);
+useEffect(() => {
+    cargarDatosReales();
+    
+    const handleOnline = () => setOfflineMode(false);
+    const handleOffline = () => setOfflineMode(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
+    };
+}, []);
 
-    // Handlers
     const handleLogout = () => {
         localStorage.clear();
         navigate('/login');
@@ -439,46 +426,87 @@ function DashboardGranjero() {
         
         setSincronizando(true);
         
-        // Simular envío
-        setTimeout(() => {
-            if (!navigator.onLine) {
-                setMensaje({ 
-                    type: 'warning', 
-                    text: '⚠️ Sin conexión a internet. Los datos se guardarán localmente.' 
-                });
-                // Aquí guardarían en localStorage/indexedDB
-            } else {
-                setMensaje({ 
-                    type: 'success', 
-                    text: '✅ Datos sincronizados correctamente con el servidor' 
-                });
+        const registroData = {
+            fecha: new Date().toISOString().split('T')[0],
+            mortandad: parseInt(mortandad),
+            aves_vivas: calculo?.aves_vivas || 9980,
+            alimento_kg: parseFloat(alimento),
+            novedades: novedades || '',
+            id_lote: 1
+        };
+        
+        const result = await apiService.guardarRegistro(registroData);
+        
+        if (result.success) {
+            setMensaje({ 
+                type: 'success', 
+                text: `Datos guardados en la nube, mortandad: ${result.porcentaje}%` 
+            });
+            
+            // 👇 AGREGAR ESTA LÍNEA PARA RECARGAR LOS DATOS
+            await cargarDatosReales();  // Recarga los datos actualizados
+            
+            if (result.alerta) {
+                setTimeout(() => {
+                    setMensaje({ 
+                        type: 'warning', 
+                        text: 'ALERTA: La mortandad ha superado el 5%' 
+                    });
+                }, 3000);
             }
             
-            // Limpiar formulario
             setMortandad('');
             setAlimento('');
             setNovedades('');
-            setSincronizando(false);
-            
-            setTimeout(() => setMensaje(null), 4000);
-        }, 1500);
+        } else {
+            setMensaje({ type: 'error', text: ' Error al guardar: ' + (result.error || 'Desconocido') });
+        }
+        
+        setSincronizando(false);
+        setTimeout(() => setMensaje(null), 4000);
     };
 
     return (
         <ThemeProvider theme={theme}>
             <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
-                <Header 
-                    nombre={nombre}
-                    offlineMode={offlineMode}
-                    onLogout={handleLogout}
-                />
+                <Box sx={{ bgcolor: 'primary.main', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                    <Container maxWidth="xl">
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <EggIcon sx={{ fontSize: 50 }} />
+                                    <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                        Arge<span style={{ color: '#c6a43f' }}>Ave</span>
+                                    </Typography>
+                                </Box>
+                                <Divider orientation="vertical" flexItem sx={{ bgcolor: 'rgba(255,255,255,0.2)' }} />
+                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                                    Módulo Granjero
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                {offlineMode ? (
+                                    <Chip icon={<WarningIcon />} label="Offline" color="error" size="small" />
+                                ) : (
+                                    <Chip icon={<CheckCircleIcon />} label="En línea" color="success" size="small" />
+                                )}
+                                <Chip 
+                                    avatar={<Avatar sx={{ bgcolor: 'secondary.main' }}>{nombre?.charAt(0) || 'G'}</Avatar>}
+                                    label={nombre || 'Granjero'}
+                                    sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white' }}
+                                />
+                                <IconButton onClick={handleLogout} sx={{ color: 'white' }}>
+                                    <LogoutIcon />
+                                </IconButton>
+                            </Box>
+                        </Box>
+                    </Container>
+                </Box>
 
                 <Container maxWidth="xl" sx={{ py: 4 }}>
-                    {/* Mensaje de notificación */}
                     {mensaje && (
                         <Alert 
-                            severity={mensaje.type === 'success' ? 'success' : 
-                                    mensaje.type === 'warning' ? 'warning' : 'error'} 
+                            severity={mensaje.type === 'success' ? 'success' : mensaje.type === 'warning' ? 'warning' : 'error'} 
                             sx={{ mb: 3, borderRadius: 2 }}
                             onClose={() => setMensaje(null)}
                         >
@@ -486,46 +514,133 @@ function DashboardGranjero() {
                         </Alert>
                     )}
 
-                    {/* Contenido principal */}
-                    <Grid container spacing={3}>
-                        {/* Lote Actual */}
-                        <Grid item xs={12}>
-                            <LoteActualCard 
-                                calculo={calculo}
-                                mortalidadPorcentaje={mortalidadPorcentaje}
-                            />
-                        </Grid>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                        <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
+                            <Tab label="Registro Diario" />
+                            <Tab label="Ver Historial de Registros" />
+                        </Tabs>
+                    </Box>
 
-                        {/* Cálculo de Alimento */}
-                        <Grid item xs={12} md={6}>
-                            <CalculoAlimentoCard calculo={calculo} />
-                        </Grid>
+                    {tabValue === 0 ? (
+                        <Grid container spacing={3}>
+                            <Grid item xs={12}>
+                                <Card>
+                                    <CardContent>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                                Lote Actual - Galpón Norte A
+                                            </Typography>
+                                            <Chip label={`Día ${calculo?.edad_dias || 0} de 50`} icon={<ScheduleIcon />} color="primary" variant="outlined" />
+                                        </Box>
+                                        <Grid container spacing={3}>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="textSecondary">Aves iniciales</Typography>
+                                                <Typography variant="h6">{calculo?.aves_iniciales?.toLocaleString()}</Typography>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="textSecondary">Aves actuales</Typography>
+                                                <Typography variant="h6" sx={{ color: 'primary.main' }}>{calculo?.aves_vivas?.toLocaleString()}</Typography>
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="textSecondary">Mortalidad</Typography>
+                                                <Typography variant="h6" sx={{ color: '#ef4444' }}>{mortalidadPorcentaje}%</Typography>
+                                                <LinearProgress variant="determinate" value={parseFloat(mortalidadPorcentaje) || 0} sx={{ mt: 1, height: 4 }} color="error" />
+                                            </Grid>
+                                            <Grid item xs={6} sm={3}>
+                                                <Typography variant="body2" color="textSecondary">FA completado</Typography>
+                                                <Typography variant="h6">62%</Typography>
+                                                <LinearProgress variant="determinate" value={62} sx={{ mt: 1, height: 4 }} color="success" />
+                                            </Grid>
+                                        </Grid>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                        {/* Formulario Registro */}
-                        <Grid item xs={12} md={6}>
-                            <RegistroDiarioForm 
-                                mortandad={mortandad}
-                                setMortandad={setMortandad}
-                                alimento={alimento}
-                                setAlimento={setAlimento}
-                                novedades={novedades}
-                                setNovedades={setNovedades}
-                                calculo={calculo}
-                                sincronizando={sincronizando}
-                                onSubmit={handleSubmit}
-                            />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <Card>
+                                    <CardContent>
+                                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Cálculo de Alimento Automatizado</Typography>
+                                        <Divider sx={{ mb: 2 }} />
+                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                            <tbody>
+                                                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                    <td style={{ padding: '8px' }}>Aves vivas</td>
+                                                    <td style={{ padding: '8px', textAlign: 'right' }}>{calculo?.aves_vivas?.toLocaleString()}</td>
+                                                </tr>
+                                                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                    <td style={{ padding: '8px' }}>Edad del lote</td>
+                                                    <td style={{ padding: '8px', textAlign: 'right' }}>{calculo?.edad_dias} días</td>
+                                                </tr>
+                                                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                    <td style={{ padding: '8px' }}>Consumo por ave</td>
+                                                    <td style={{ padding: '8px', textAlign: 'right' }}>{calculo?.consumo_por_ave} g/día</td>
+                                                </tr>
+                                                <tr style={{ backgroundColor: '#f8fafc' }}>
+                                                    <td style={{ padding: '8px' }}><strong>Alimento requerido hoy</strong></td>
+                                                    <td style={{ padding: '8px', textAlign: 'right' }}>
+                                                        <Typography variant="h6" sx={{ fontWeight: 700, color: '#c6a43f' }}>{calculo?.alimento_requerido?.toLocaleString()} kg</Typography>
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
 
-                        {/* Condiciones del Galpón */}
-                        <Grid item xs={12} md={6}>
-                            <CondicionesGalponCard calculo={calculo} />
-                        </Grid>
+                            <Grid item xs={12} md={6}>
+                                <RegistroDiarioForm 
+                                    mortandad={mortandad}
+                                    setMortandad={setMortandad}
+                                    alimento={alimento}
+                                    setAlimento={setAlimento}
+                                    novedades={novedades}
+                                    setNovedades={setNovedades}
+                                    calculo={calculo}
+                                    sincronizando={sincronizando}
+                                    onSubmit={handleSubmit}
+                                />
+                            </Grid>
 
-                        {/* Últimos Registros */}
-                        <Grid item xs={12} md={6}>
-                            <UltimosRegistrosCard />
+                            <Grid item xs={12}>
+                                <Card>
+                                    <CardContent>
+                                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>Últimos Registros</Typography>
+                                        <Divider sx={{ mb: 2 }} />
+                                        <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr style={{ backgroundColor: '#f8fafc' }}>
+                                                        <th style={{ padding: '10px', textAlign: 'left' }}>Fecha</th>
+                                                        <th style={{ padding: '10px', textAlign: 'right' }}>Mortandad</th>
+                                                        <th style={{ padding: '10px', textAlign: 'right' }}>Alimento (kg)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {[
+                                                        { fecha: '2026-04-30', mortandad: 3, alimento: 1650 },
+                                                        { fecha: '2026-04-29', mortandad: 2, alimento: 1640 },
+                                                        { fecha: '2026-04-28', mortandad: 4, alimento: 1620 },
+                                                    ].map((reg, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                                                            <td style={{ padding: '10px' }}>{reg.fecha}</td>
+                                                            <td style={{ padding: '10px', textAlign: 'right' }}>
+                                                                <Chip label={` ${reg.mortandad}`} size="small" variant="outlined" color="error" />
+                                                            </td>
+                                                            <td style={{ padding: '10px', textAlign: 'right' }}>
+                                                                <Chip label={` ${reg.alimento} kg`} size="small" variant="outlined" color="primary" />
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Grid>
                         </Grid>
-                    </Grid>
+                    ) : (
+                        <HistorialRegistros />
+                    )}
                 </Container>
             </Box>
         </ThemeProvider>

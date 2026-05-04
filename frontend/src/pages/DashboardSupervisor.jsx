@@ -260,7 +260,7 @@ function DashboardSupervisor() {
                                 <CardContent>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                            📋 Granjas Registradas
+                                        Granjas Registradas
                                         </Typography>
                                         <Button size="small" startIcon={<AddIcon />} variant="contained" sx={{ bgcolor: 'primary.main' }}>
                                             Nueva Granja
@@ -311,7 +311,7 @@ function DashboardSupervisor() {
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                                        📝 Últimos Movimientos
+                                    Últimos Movimientos
                                     </Typography>
                                     <Divider sx={{ mb: 2 }} />
                                     {ultimosMovimientos.map((mov, idx) => (
