@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import logoOficial from '../assets/logo.png';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -20,7 +20,7 @@ import { theme } from '../styles/theme';
 import { apiService } from '../services/apiService';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as TooltipGrafico, ResponsiveContainer } from 'recharts';
 
-const HistorialRegistros = () => {
+const HistorialRegistros = ({ calculo }) => {
     const [fechaInicio, setFechaInicio] = useState('');
     const [fechaFin, setFechaFin] = useState('');
     const [registros, setRegistros] = useState([]);
@@ -66,40 +66,178 @@ const HistorialRegistros = () => {
     const promedio = totalRegistros > 0 ? (totalMortandad / totalRegistros).toFixed(1) : 0;
     const totalAlimento = registros.reduce((sum, r) => sum + (r.alimento || 0), 0);
 
-    const exportarExcel = () => {
-        const datosExportar = registros.map(reg => ({
-            'FECHA': reg.fecha,
-            'GALPÓN': reg.galpon,
-            'MORTANDAD (aves)': reg.mortalidad,
-            'ALIMENTO (kg)': reg.alimento,
-            'OBSERVACIONES': reg.observaciones
-        }));
+       const exportarExcel = () => {
+        try {
+            const datosGranja = {
+                granja: "San Antonio",
+                origen: "Incubadora Pando",
+                galpon: "1",
+                ingreso: registros.length > 0 ? registros[registros.length - 1].fecha : "Sin datos",
+                n_aves: calculo?.aves_iniciales?.toString() || "10000" 
+            };
 
-        const resumenExportar = [
-            ['ARGEAVE - SISTEMA AVÍCOLA'],
-            [''],
-            ['REPORTE DE REGISTROS DIARIOS'],
-            [''],
-            ['GRANJA:', 'Granja Norte'],
-            ['PERIODO:', `${fechaInicio} al ${fechaFin}`],
-            ['FECHA EXPORTACIÓN:', new Date().toLocaleString()],
-            [''],
-            ['INDICADORES'],
-            ['Total Registros:', totalRegistros],
-            ['Total Mortandad:', `${totalMortandad} aves`],
-            ['Total Alimento:', `${totalAlimento} kg`],
-            ['Promedio Mortandad Diaria:', `${promedio} aves/día`],
-        ];
+            // 14 columnas exactas en cada fila para calzar con la cuadrícula de abajo
+            const hojaMortandad = [
+                // Fila 0
+                ["GRANJA:", datosGranja.granja, "", "", "", "", "", "", "INGRESO:", "", "", datosGranja.ingreso, "", ""],
+                // Fila 1
+                ["ORIGEN:", datosGranja.origen, "", "", "", "", "", "", "N° DE AVES:", "", "", datosGranja.n_aves, "", ""],
+                // Fila 2
+                ["GALPÓN:", datosGranja.galpon, "", "", "", "", "", "", "", "", "", "", "", ""],
+                // Fila 3
+                ["FECHA", "", "", "LOTE", "", "", "", "", "CANTIDAD", "", "", "", "", ""],
+                // Fila 4
+                [datosGranja.ingreso, "", "", "L-ACTUAL", "", "", "", "", datosGranja.n_aves, "", "", "", "", ""],
+                // Fila 5 (vacia)
+                ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                // Fila 6 (vacia)
+                ["", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                // Fila 7
+                ["SEMANA", "MORTANDAD DIARIA", "", "", "", "", "", "", "MORTANDAD", "", "", "", "PESO SEM", ""],
+                // Fila 8
+                ["", "L", "M", "M", "J", "V", "S", "D", "SEM.", "%", "ACUM.", "%", "EDAD", "PESO"],
+            ];
 
-        const wb = XLSX.utils.book_new();
-        const wsDatos = XLSX.utils.json_to_sheet(datosExportar);
-        XLSX.utils.book_append_sheet(wb, wsDatos, 'Registros Diarios');
-        const wsResumen = XLSX.utils.aoa_to_sheet(resumenExportar);
-        XLSX.utils.book_append_sheet(wb, wsResumen, 'Resumen');
-        
-        XLSX.writeFile(wb, `Reporte_Registros_${fechaInicio}_${fechaFin}.xlsx`);
+            const totalDiasRegistrados = registros.length;
+            const totalSemanas = Math.max(8, Math.ceil(totalDiasRegistrados / 7)); 
+            
+            let muertesAcumuladas = 0;
+            const avesIniciales = parseInt(datosGranja.n_aves) || 10000;
+
+            for (let i = 0; i < totalSemanas; i++) {
+                const semanaActual = i + 1;
+                const registrosCronologicos = [...registros].reverse(); 
+                const diasDeEstaSemana = registrosCronologicos.slice(i * 7, (i * 7) + 7);
+
+                if (diasDeEstaSemana.length === 0) {
+                    hojaMortandad.push([semanaActual, "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+                    continue;
+                }
+
+                const muertesPorDia = Array(7).fill("");
+                let muertesEstaSemana = 0;
+
+                diasDeEstaSemana.forEach((reg, index) => {
+                    const mortandadDelDia = parseInt(reg.mortalidad) || 0; 
+                    muertesPorDia[index] = mortandadDelDia;
+                    muertesEstaSemana += mortandadDelDia;
+                });
+
+                muertesAcumuladas += muertesEstaSemana;
+
+                const porcentajeSemana = avesIniciales > 0 ? ((muertesEstaSemana / avesIniciales) * 100).toFixed(2) : 0;
+                const porcentajeAcumulado = avesIniciales > 0 ? ((muertesAcumuladas / avesIniciales) * 100).toFixed(2) : 0;
+                const edad = semanaActual * 7;
+
+                hojaMortandad.push([
+                    semanaActual,
+                    ...muertesPorDia, 
+                    muertesEstaSemana,
+                    porcentajeSemana,
+                    muertesAcumuladas,
+                    porcentajeAcumulado,
+                    edad,
+                    ""
+                ]);
+            }
+
+            const ws = XLSX.utils.aoa_to_sheet(hojaMortandad);
+
+            // ¡EL SECRETO ESTÁ ACÁ! Uniendo las celdas exactas para que calce el diseño
+            ws['!merges'] = [
+                // Encabezados superiores
+                { s: { r: 0, c: 1 }, e: { r: 0, c: 7 } }, // San Antonio ocupa 7 columnas
+                { s: { r: 0, c: 8 }, e: { r: 0, c: 10 } }, // INGRESO: ocupa 3 columnas
+                { s: { r: 0, c: 11 }, e: { r: 0, c: 13 } }, // Valor Ingreso ocupa 3 columnas
+
+                { s: { r: 1, c: 1 }, e: { r: 1, c: 7 } }, // Incubadora
+                { s: { r: 1, c: 8 }, e: { r: 1, c: 10 } }, // N DE AVES:
+                { s: { r: 1, c: 11 }, e: { r: 1, c: 13 } }, // Valor Aves
+
+                { s: { r: 2, c: 1 }, e: { r: 2, c: 7 } }, // Galpon 1
+                { s: { r: 2, c: 8 }, e: { r: 2, c: 13 } }, // Vacio derecho
+
+                // Fila FECHA, LOTE, CANTIDAD
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 2 } }, // FECHA ocupa 3
+                { s: { r: 3, c: 3 }, e: { r: 3, c: 7 } }, // LOTE ocupa 5
+                { s: { r: 3, c: 8 }, e: { r: 3, c: 13 } }, // CANTIDAD ocupa 6
+
+                // Tres filas para rellenar Lote (4, 5, 6)
+                { s: { r: 4, c: 0 }, e: { r: 4, c: 2 } },
+                { s: { r: 4, c: 3 }, e: { r: 4, c: 7 } },
+                { s: { r: 4, c: 8 }, e: { r: 4, c: 13 } },
+
+                { s: { r: 5, c: 0 }, e: { r: 5, c: 2 } },
+                { s: { r: 5, c: 3 }, e: { r: 5, c: 7 } },
+                { s: { r: 5, c: 8 }, e: { r: 5, c: 13 } },
+
+                { s: { r: 6, c: 0 }, e: { r: 6, c: 2 } },
+                { s: { r: 6, c: 3 }, e: { r: 6, c: 7 } },
+                { s: { r: 6, c: 8 }, e: { r: 6, c: 13 } },
+
+                // Títulos tabla mortandad (Filas 7 y 8)
+                { s: { r: 7, c: 0 }, e: { r: 8, c: 0 } }, // "SEMANA" se fusiona hacia abajo
+                { s: { r: 7, c: 1 }, e: { r: 7, c: 7 } }, // MORTANDAD DIARIA
+                { s: { r: 7, c: 8 }, e: { r: 7, c: 11 } }, // MORTANDAD
+                { s: { r: 7, c: 12 }, e: { r: 7, c: 13 } } // PESO SEM
+            ];
+
+            // Anchos proporcionales idénticos a los de la hoja
+            ws['!cols'] = [
+                { wch: 11 }, // SEMANA / GRANJA
+                { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }, // Dias L a D
+                { wch: 7 }, // SEM.
+                { wch: 6 }, // %
+                { wch: 8 }, // ACUM.
+                { wch: 6 }, // %
+                { wch: 7 }, // EDAD
+                { wch: 7 }  // PESO
+            ];
+
+            const rango = XLSX.utils.decode_range(ws['!ref']);
+            for (let fila = rango.s.r; fila <= rango.e.r; fila++) {
+                for (let col = rango.s.c; col <= rango.e.c; col++) {
+                    const celda = ws[XLSX.utils.encode_cell({ r: fila, c: col })];
+                    
+                    if (!celda) {
+                        ws[XLSX.utils.encode_cell({ r: fila, c: col })] = { t: 's', v: '' };
+                    }
+                    
+                    const celdaActual = ws[XLSX.utils.encode_cell({ r: fila, c: col })];
+                    
+                    // Lógica para alinear a la IZQUIERDA solo ciertas etiquetas (como en el papel)
+                    let alineacionH = 'center';
+                    if (col === 0 && fila < 3) alineacionH = 'left'; // GRANJA, ORIGEN, GALPON
+                    if (col === 8 && fila < 2) alineacionH = 'left'; // INGRESO, N DE AVES
+
+                    celdaActual.s = {
+                        border: {
+                            top: { style: 'thin', color: { rgb: "000000" } },
+                            bottom: { style: 'thin', color: { rgb: "000000" } },
+                            left: { style: 'thin', color: { rgb: "000000" } },
+                            right: { style: 'thin', color: { rgb: "000000" } }
+                        },
+                        alignment: {
+                            vertical: 'center',
+                            horizontal: alineacionH,
+                            wrapText: true 
+                        },
+                        font: {
+                            bold: fila < 9 || col === 0 // Negrita a los títulos y a la columna SEMANA
+                        }
+                    };
+                }
+            }
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Mortandad');
+            XLSX.writeFile(wb, `Planilla_Lote_1.xlsx`);
+
+        } catch (error) {
+            alert("Hubo un error al crear el Excel:\n" + error.message);
+            console.error("Detalle completo:", error);
+        }
     };
-
     return (
         <Box>
             <Paper sx={{ p: 2, mb: 3 }}>
@@ -642,7 +780,7 @@ function DashboardGranjero() {
                             
                         </Grid>
                     ) : (
-                        <HistorialRegistros />
+                        <HistorialRegistros calculo={calculo}/>
                     )}
                 </Container>
             </Box>
