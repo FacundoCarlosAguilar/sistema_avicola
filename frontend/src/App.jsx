@@ -3,7 +3,10 @@ import Login from './pages/Login';
 import DashboardSupervisor from './pages/DashboardSupervisor';
 import DashboardGranjero from './pages/DashboardGranjero';
 
-// Componente para proteger rutas según rol
+// IMPORTAMOS EL LAYOUT NUEVO
+import Layout from './components/Layout';
+
+// Tu componente de seguridad (¡Intocable!)
 function PrivateRoute({ children, allowedRoles }) {
     const token = localStorage.getItem('token');
     const rol = localStorage.getItem('rol');
@@ -23,27 +26,32 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
+                {/* RUTA PÚBLICA: Sin Layout (sin Footer) */}
                 <Route path="/login" element={<Login />} />
-                
-                <Route 
-                    path="/dashboard" 
-                    element={
-                        <PrivateRoute allowedRoles={['supervisor']}>
-                            <DashboardSupervisor />
-                        </PrivateRoute>
-                    } 
-                />
-                
-                <Route 
-                    path="/carga-diaria" 
-                    element={
-                        <PrivateRoute allowedRoles={['granjero']}>
-                            <DashboardGranjero />
-                        </PrivateRoute>
-                    } 
-                />
-                
                 <Route path="/" element={<Navigate to="/login" />} />
+                
+                {/* RUTAS PRIVADAS Y CON DISEÑO: Envueltas en el Layout */}
+                <Route element={<Layout />}>
+                    
+                    <Route 
+                        path="/dashboard" 
+                        element={
+                            <PrivateRoute allowedRoles={['supervisor']}>
+                                <DashboardSupervisor />
+                            </PrivateRoute>
+                        } 
+                    />
+                    
+                    <Route 
+                        path="/carga-diaria" 
+                        element={
+                            <PrivateRoute allowedRoles={['granjero']}>
+                                <DashboardGranjero />
+                            </PrivateRoute>
+                        } 
+                    />
+
+                </Route>
             </Routes>
         </BrowserRouter>
     );
