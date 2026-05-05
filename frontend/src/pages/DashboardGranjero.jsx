@@ -223,14 +223,60 @@ const HistorialRegistros = ({ calculo }) => {
                             wrapText: true 
                         },
                         font: {
-                            bold: fila < 9 || col === 0 // Negrita a los títulos y a la columna SEMANA
+                            bold: fila < 9 || col === 0 
                         }
+                    };
+                }
+            }
+
+            const hojaAlimentos = [
+                ["ALIMENTOS RECIBIDOS", "", "", "", "", "", "", "", "", "", "", "", "", "", ""],
+                ["F1", "", "", "F2", "", "", "F3", "", "", "F4", "", "", "F5", "", ""],
+                ["FECHA", "REMITO", "KGS.", "FECHA", "REMITO", "KGS.", "FECHA", "REMITO", "KGS.", "FECHA", "REMITO", "KGS.", "FECHA", "REMITO", "KGS."]
+            ];
+
+            for (let i = 0; i < 20; i++) {
+                hojaAlimentos.push(["", "", "", "", "", "", "", "", "", "", "", "", "", "", ""]);
+            }
+
+            const wsAlimentos = XLSX.utils.aoa_to_sheet(hojaAlimentos);
+
+            wsAlimentos['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }, 
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },  
+                { s: { r: 1, c: 3 }, e: { r: 1, c: 5 } },  
+                { s: { r: 1, c: 6 }, e: { r: 1, c: 8 } },  
+                { s: { r: 1, c: 9 }, e: { r: 1, c: 11 } }, 
+                { s: { r: 1, c: 12 }, e: { r: 1, c: 14 } } 
+            ];
+
+            wsAlimentos['!cols'] = Array(15).fill({ wch: 10 });
+
+            const rangoAlimentos = XLSX.utils.decode_range(wsAlimentos['!ref']);
+            for (let fila = rangoAlimentos.s.r; fila <= rangoAlimentos.e.r; fila++) {
+                for (let col = rangoAlimentos.s.c; col <= rangoAlimentos.e.c; col++) {
+                    const celda = wsAlimentos[XLSX.utils.encode_cell({ r: fila, c: col })];
+                    if (!celda) {
+                        wsAlimentos[XLSX.utils.encode_cell({ r: fila, c: col })] = { t: 's', v: '' };
+                    }
+                    
+                    const celdaActual = wsAlimentos[XLSX.utils.encode_cell({ r: fila, c: col })];
+                    celdaActual.s = {
+                        border: {
+                            top: { style: 'thin', color: { rgb: "000000" } },
+                            bottom: { style: 'thin', color: { rgb: "000000" } },
+                            left: { style: 'thin', color: { rgb: "000000" } },
+                            right: { style: 'thin', color: { rgb: "000000" } }
+                        },
+                        alignment: { vertical: 'center', horizontal: 'center', wrapText: true },
+                        font: { bold: fila < 3 }
                     };
                 }
             }
             
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, 'Mortandad');
+            XLSX.utils.book_append_sheet(wb, wsAlimentos, 'Alimentos');
             XLSX.writeFile(wb, `Planilla_Lote_1.xlsx`);
 
         } catch (error) {
