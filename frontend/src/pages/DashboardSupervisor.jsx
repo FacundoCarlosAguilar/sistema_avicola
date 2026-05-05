@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import {
     Container, Grid, Card, CardContent, Typography, Box, IconButton,
     Avatar, Button, Divider, Chip, Table, TableBody, TableRow, TableCell,
-    LinearProgress, Tooltip, Menu, MenuItem, ListItemIcon
+    LinearProgress, Tooltip, Menu, MenuItem, ListItemIcon,
+    Dialog, DialogTitle, DialogContent, DialogActions, TextField
 } from '@mui/material';
 import {
     Logout as LogoutIcon,
@@ -31,6 +32,53 @@ function DashboardSupervisor() {
     const [lotes, setLotes] = useState([]);
     const [loading, setLoading] = useState(true);
     const [anchorEl, setAnchorEl] = useState(null);
+    const [openModal, setOpenModal] = useState(false);
+    const [modalMode, setModalMode] = useState('view');
+    const [granjaActual, setGranjaActual] = useState({ nombre: '', ubicacion: '', activa: 1 });
+    const [openPrefs, setOpenOpenPrefs] = useState(false);
+    const [darkMode, setDarkMode] = useState(false); 
+
+    const handleOpenCreate = () => {
+        setGranjaActual({ nombre: '', ubicacion: '', activa: 1 });
+        setModalMode('create');
+        setOpenModal(true);
+    };
+
+    const handleOpenEdit = (granja) => {
+        setGranjaActual(granja);
+        setModalMode('edit');
+        setOpenModal(true);
+    };
+
+    const handleOpenView = (granja) => {
+        setGranjaActual(granja);
+        setModalMode('view');
+        setOpenModal(true);
+    };
+
+    const handleCloseModal = () => {
+        setOpenModal(false);
+    };
+
+    const handleSaveGranja = () => {
+        console.log("Guardando datos:", granjaActual);
+        
+        if (modalMode === 'create') {
+            setGranjas([...granjas, { ...granjaActual, id: Date.now() }]);
+        } else if (modalMode === 'edit') {
+            setGranjas(granjas.map(g => g.id === granjaActual.id ? granjaActual : g));
+        }
+        
+        setOpenModal(false);
+    };
+
+    const handleDeleteGranja = (id) => {
+        // Acá iría tu llamado DELETE al backend
+        console.log("Eliminando granja con id:", id);
+        
+        // Actualizamos visualmente la tabla filtrando la que borramos
+        setGranjas(granjas.filter(g => g.id !== id));
+    };
     const nombre = localStorage.getItem('nombre');
     const navigate = useNavigate();
 
@@ -125,7 +173,7 @@ function DashboardSupervisor() {
             <Box sx={{ bgcolor: 'background.default', minHeight: '100vh' }}>
                 {/* Header corporativo */}
                 <Box sx={{ bgcolor: 'primary.main', color: 'white', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <Container maxWidth="xl">
+                    <Container maxWidth="lg">
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.5 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -181,11 +229,12 @@ function DashboardSupervisor() {
                         <ListItemIcon><LogoutIcon fontSize="small" /></ListItemIcon>
                         <Typography variant="body2">Cerrar sesión</Typography>
                     </MenuItem>
+                    
                 </Menu>
 
-                <Container maxWidth="xl" sx={{ py: 4 }}>
+                <Container maxWidth="lg" sx={{ py: 4 }}>
                     {/* Métricas principales */}
-                    <Grid container spacing={3} sx={{ mb: 4 }}>
+                    <Grid container spacing={3} sx={{ mb: 4 }}justifyContent="center">
                         {metrics.map((metric, idx) => (
                             <Grid item xs={12} sm={6} md={3} key={idx}>
                                 <Card>
@@ -219,51 +268,53 @@ function DashboardSupervisor() {
 
                     {/* Acciones rápidas */}
                     <Box sx={{ mb: 4 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                Acciones Rápidas
-                            </Typography>
-                            <Button size="small" startIcon={<DownloadIcon />}>Exportar reporte</Button>
-                        </Box>
-                        <Grid container spacing={2}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+                            Acciones Rápidas
+                        </Typography>
+                        <Grid container spacing={2} justifyContent="center">
                             {quickActions.map((action, idx) => (
-                                <Grid item xs={12} sm={6} md={4} key={idx}>
+                                <Grid item xs={6} sm={4} md={2} key={idx}>
                                     <Button
                                         fullWidth
                                         variant="outlined"
-                                        startIcon={action.icon}
                                         onClick={action.action}
                                         sx={{
-                                            justifyContent: 'flex-start',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            gap: 1,
                                             textTransform: 'none',
-                                            fontWeight: 500,
-                                            py: 1.5,
+                                            py: 2,
                                             borderColor: '#e2e8f0',
                                             color: '#1e293b',
+                                            height: '100%',
                                             '&:hover': {
                                                 borderColor: 'primary.main',
                                                 bgcolor: '#f8fafc'
                                             }
                                         }}
                                     >
-                                        {action.label}
+                                        <Box sx={{ color: 'primary.main' }}>{action.icon}</Box>
+                                        <Typography variant="caption" sx={{ fontWeight: 600, textAlign: 'center', lineHeight: 1.2 }}>
+                                            {action.label}
+                                        </Typography>
                                     </Button>
                                 </Grid>
                             ))}
                         </Grid>
                     </Box>
 
-                    <Grid container spacing={3}>
+                    <Grid container spacing={3} justifyContent="center">
                         {/* Lista de granjas */}
                         <Grid item xs={12} md={7}>
                             <Card>
                                 <CardContent>
                                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                                         <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                                        Granjas Registradas
-                                        </Typography>
-                                        <Button size="small" startIcon={<AddIcon />} variant="contained" sx={{ bgcolor: 'primary.main' }}>
-                                            Nueva Granja
+                                            Granjas Registradas
+                                            </Typography>
+                                            <Button size="small" startIcon={<AddIcon />} variant="contained" sx={{ bgcolor: 'primary.main' }} onClick={handleOpenCreate}>
+                                                Nueva Granja
                                         </Button>
                                     </Box>
                                     <Divider sx={{ mb: 2 }} />
@@ -289,12 +340,21 @@ function DashboardSupervisor() {
                                                                 sx={{ bgcolor: '#ecfdf5', color: '#10b981', fontSize: '0.7rem' }}
                                                             />
                                                         </TableCell>
-                                                        <TableCell align="right">
+                                                       <TableCell align="right">
                                                             <Tooltip title="Ver detalles">
-                                                                <IconButton size="small"><ViewIcon fontSize="small" /></IconButton>
+                                                                <IconButton size="small" onClick={() => handleOpenView(granja)}>
+                                                                    <ViewIcon fontSize="small" />
+                                                                </IconButton>
                                                             </Tooltip>
                                                             <Tooltip title="Editar">
-                                                                <IconButton size="small"><EditIcon fontSize="small" /></IconButton>
+                                                                <IconButton size="small" onClick={() => handleOpenEdit(granja)}>
+                                                                    <EditIcon fontSize="small" />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                            <Tooltip title="Eliminar">
+                                                                <IconButton size="small" onClick={() => handleDeleteGranja(granja.id)} color="error">
+                                                                    <DeleteIcon fontSize="small" />
+                                                                </IconButton>
                                                             </Tooltip>
                                                         </TableCell>
                                                     </TableRow>
@@ -307,7 +367,7 @@ function DashboardSupervisor() {
                         </Grid>
 
                         {/* Últimos movimientos */}
-                        <Grid item xs={12} md={5}>
+                        <Grid item xs={12} md={4}>
                             <Card>
                                 <CardContent>
                                     <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -348,9 +408,20 @@ function DashboardSupervisor() {
                     {/* Rendimiento */}
                     <Card sx={{ mt: 3 }}>
                         <CardContent>
-                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-                                📈 Indicadores de Rendimiento
-                            </Typography>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                                    📈 Indicadores de Rendimiento
+                                </Typography>
+                                <Button 
+                                    size="small" 
+                                    variant="outlined" 
+                                    startIcon={<DownloadIcon />}
+                                    sx={{ borderColor: '#e2e8f0', color: 'text.secondary', textTransform: 'none' }}
+                                >
+                                    Exportar reporte
+                                </Button>
+                            </Box>
+                            
                             <Grid container spacing={4}>
                                 <Grid item xs={12} md={4}>
                                     <Typography variant="body2" color="textSecondary" gutterBottom>
@@ -393,6 +464,49 @@ function DashboardSupervisor() {
                     </Card>
                 </Container>
             </Box>
+            <Dialog 
+                    open={openModal} 
+                    onClose={handleCloseModal}
+                    PaperProps={{
+                        sx: { borderRadius: 3, padding: 1, minWidth: '400px' }
+                    }}
+                >
+                    <DialogTitle sx={{ fontWeight: 600 }}>
+                        {modalMode === 'create' && 'Registrar Nueva Granja'}
+                        {modalMode === 'edit' && 'Editar Granja'}
+                        {modalMode === 'view' && 'Detalles de la Granja'}
+                    </DialogTitle>
+                    <DialogContent>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+                            <TextField
+                                label="Nombre de la Granja"
+                                fullWidth
+                                variant="outlined"
+                                value={granjaActual.nombre || ''}
+                                onChange={(e) => setGranjaActual({ ...granjaActual, nombre: e.target.value })}
+                                disabled={modalMode === 'view'}
+                            />
+                            <TextField
+                                label="Ubicación"
+                                fullWidth
+                                variant="outlined"
+                                value={granjaActual.ubicacion || ''}
+                                onChange={(e) => setGranjaActual({ ...granjaActual, ubicacion: e.target.value })}
+                                disabled={modalMode === 'view'}
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, pb: 2 }}>
+                        <Button onClick={handleCloseModal} sx={{ color: 'text.secondary' }}>
+                            {modalMode === 'view' ? 'Cerrar' : 'Cancelar'}
+                        </Button>
+                        {modalMode !== 'view' && (
+                            <Button onClick={handleSaveGranja} variant="contained" sx={{ bgcolor: 'primary.main' }}>
+                                Guardar
+                            </Button>
+                        )}
+                    </DialogActions>
+                </Dialog>
         </ThemeProvider>
     );
 }
