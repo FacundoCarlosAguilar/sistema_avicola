@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import DashboardSupervisor from './pages/DashboardSupervisor';
 import DashboardGranjero from './pages/DashboardGranjero';
+import GestionLotes from './pages/GestionLotes';
 
 // IMPORTAMOS EL LAYOUT NUEVO
 import Layout from './components/Layout';
@@ -42,6 +43,15 @@ function App() {
                         } 
                     />
                     
+                    <Route 
+                        path="/gestion-lotes" 
+                        element={
+                            <PrivateRoute allowedRoles={['supervisor']}>
+                                <GestionLotes />
+                            </PrivateRoute>
+                        } 
+                    />
+
                     <Route 
                         path="/carga-diaria" 
                         element={

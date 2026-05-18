@@ -31,6 +31,7 @@ function DashboardSupervisor() {
     const [granjas, setGranjas] = useState([]);
     const [lotes, setLotes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
     const [openModal, setOpenModal] = useState(false);
     const [modalMode, setModalMode] = useState('view');
@@ -130,7 +131,6 @@ function DashboardSupervisor() {
     };
 
     const nombre = localStorage.getItem('nombre');
-    const navigate = useNavigate();
 
     useEffect(() => {
         cargarDatos();
@@ -204,7 +204,7 @@ function DashboardSupervisor() {
 
     const quickActions = [
         { label: 'Gestión de Granjas', icon: <BusinessIcon />, action: () => alert('Módulo en desarrollo') },
-        { label: 'Gestión de Lotes', icon: <LoteIcon />, action: () => alert('Módulo en desarrollo') },
+        { label: 'Gestión de Lotes', icon: <LoteIcon />, action: () => navigate('/gestion-lotes') },
         { label: 'Usuarios y Roles', icon: <UsersIcon />, action: () => alert('Módulo en desarrollo') },
         { label: 'Trazabilidad Sanitaria', icon: <HealthIcon />, action: () => alert('Módulo en desarrollo') },
         { label: 'Reportes Ejecutivos', icon: <ReportIcon />, action: () => alert('Módulo en desarrollo') },
