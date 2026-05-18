@@ -189,7 +189,19 @@ export default function GestionLotes() {
                             value={loteActual.fecha_ingreso || ''}
                             onChange={(e) => setLoteActual({ ...loteActual, fecha_ingreso: e.target.value })}
                             disabled={modalMode === 'view'}
+                            
+                            type={modalMode === 'view' ? 'text' : 'text'} // Se renderiza como texto por defecto
+                            onFocus={(e) => {
+                            if (modalMode !== 'view') e.target.type = 'date';
+                            }}
+                            onBlur={(e) => {
+                            if (!loteActual.fecha_ingreso) e.target.type = 'text';
+                            }}
+                            InputLabelProps={{
+                            shrink: modalMode === 'view' || Boolean(loteActual.fecha_ingreso) ? true : undefined
+                            }}
                         />
+
                         <TextField
                             label="Cantidad Inicial de Aves"
                             type="number"
@@ -222,9 +234,20 @@ export default function GestionLotes() {
                                     label="Cantidad Galpones"
                                     type="number"
                                     fullWidth
-                                    value={loteActual.cantidad_galpon || ''}
-                                    onChange={(e) => setLoteActual({ ...loteActual, cantidad_galpon: e.target.value })}
-                                    disabled={modalMode === 'view'}
+                                    inputProps={{ min: 1 }}
+                                    onKeyDown={(e) => {
+                                    if (e.key === '-' || e.key === 'e' || e.key === '+') {
+                                        e.preventDefault();}
+                                        }}
+                                        value={loteActual.cantidad_galpon || ''}
+                                        onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === '' || parseInt(val) >= 1) {
+                                        setLoteActual({ ...loteActual, cantidad_galpon: val });
+                                        }
+                                        }}
+                                        disabled={modalMode === 'view'}
+                                    
                                 />
                             </Grid>
                         </Grid>
