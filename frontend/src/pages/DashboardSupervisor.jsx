@@ -35,6 +35,9 @@ function DashboardSupervisor() {
     const [openModal, setOpenModal] = useState(false);
     const [modalMode, setModalMode] = useState('view');
     const [granjaActual, setGranjaActual] = useState({ nombre: '', ubicacion: '', activa: 1 });
+    const [openLoteModal, setOpenLoteModal] = useState(false);
+    const [loteMode, setLoteMode] = useState('view');
+    const [loteActual, setLoteActual] = useState({ fecha_ingreso: '', cantidad_aves: '', proveedor: '', id_galpon: '', cantidad_galpon: '',  activo: 1 });
     const [openPrefs, setOpenOpenPrefs] = useState(false);
     const [darkMode, setDarkMode] = useState(false); 
 
@@ -79,6 +82,53 @@ function DashboardSupervisor() {
         // Actualizamos visualmente la tabla filtrando la que borramos
         setGranjas(granjas.filter(g => g.id !== id));
     };
+    
+    const handleOpenCreateLote = () => {
+        setLoteActual({ fecha_ingreso: '', cantidad_aves: '', proveedor: '', id_galpon: '', cantidad_galpon: '', activo: 1 });
+        setLoteMode('create');
+        setOpenLoteModal(true);
+    };
+
+    const handleOpenViewLote = (lote) => {
+        setLoteActual(lote);
+        setLoteMode('view');
+        setOpenLoteModal(true);
+    };
+
+    const handleSaveLote = async () => {
+        console.log("Guardando datos del lote:", loteActual);
+        if (loteMode === 'create') {
+            try {
+                // Se agrega cantidad_galpon al envío JSON de la API
+                const response = await fetch('http://localhost:8000/api/lotes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fecha_ingreso: loteActual.fecha_ingreso,
+                        cantidad_aves: parseInt(loteActual.cantidad_aves),
+                        proveedor: loteActual.proveedor,
+                        id_galpon: parseInt(loteActual.id_galpon),
+                        cantidad_galpon: parseInt(loteActual.cantidad_galpon)
+                    })
+                });
+                if (response.ok) {
+                    const nuevoLoteCreado = await response.json();
+                    setLotes([...lotes, nuevoLoteCreado]);
+                }
+            } catch (error) {
+                console.error("Error al guardar lote en servidor:", error);
+                // Fallback local por si el backend está apagado mientras pruebas
+                setLotes([...lotes, { ...loteActual, id: Date.now() }]);
+            }
+        }
+        setOpenLoteModal(false);
+    };
+
+    const handleDeleteLote = (id) => {
+        console.log("Eliminando lote con id:", id);
+        setLotes(lotes.filter(l => l.id !== id));
+    };
+
     const nombre = localStorage.getItem('nombre');
     const navigate = useNavigate();
 

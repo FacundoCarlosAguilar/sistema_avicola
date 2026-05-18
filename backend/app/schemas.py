@@ -25,3 +25,14 @@ class GranjaResponse(GranjaCreate):
 class GalponCreate(BaseModel):
     nombre: str
     capacidad: int
+
+class LoteCreate(BaseModel):
+    fecha_ingreso: date       
+    cantidad_aves: int
+    proveedor: str
+    id_galpon: int
+    cantidad_galpon: int
+    
+class LoteResponse(LoteCreate):
+    id: int
+    activo: bool
