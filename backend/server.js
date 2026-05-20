@@ -10,11 +10,16 @@ console.log('PORT:', process.env.PORT);
 
 const { pool, testConnection } = require('./config/database');
 const { initTables, insertTestData } = require('./models/avicolaModels');
+
+// Controladores anteriores
 const { 
     guardarRegistroDiario, 
     obtenerRegistros,
     obtenerLoteActivo 
 } = require('./controllers/registrosController');
+
+// NUEVO CONTROLADOR: Para registrar usuarios
+const { registrarGranjero } = require('./controllers/usuariosController');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -23,27 +28,36 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Middleware de autenticación (simplificado)
+// Middleware de autenticación MEJORADO
+// Nota: Cuando implementes login real con JWT, acá leerás el token.
+// Por ahora, lee los datos que vienen desde la página web (headers) o mantiene un fallback.
 const authMiddleware = (req, res, next) => {
-    // Temporal: usuario fijo para pruebas
+    // Intentamos leer el usuario que manda el frontend, si no viene, dejamos el de pruebas
     req.usuario = {
-        id_usuario: 1,
-        username: 'granjero',
-        rol: 'granjero',
-        id_granja: 1
+        id_usuario: parseInt(req.headers['x-user-id']) || 1,
+        username: req.headers['x-user-username'] || 'granjero',
+        rol: req.headers['x-user-role'] || 'granjero', // 'granjero' o 'supervisor'
+        id_granja: parseInt(req.headers['x-user-farm-id']) || 1
     };
     next();
 };
 
-// Rutas
+// ================= RUTAS DEL SISTEMA =================
+
+// Rutas de Registros (Granjeros)
 app.post('/api/registros', authMiddleware, guardarRegistroDiario);
 app.get('/api/registros', authMiddleware, obtenerRegistros);
 app.get('/api/lote-activo/:id_galpon', authMiddleware, obtenerLoteActivo);
+
+// NUEVA RUTA: Registrar Granjeros (Solo Supervisores)
+app.post('/api/usuarios/registrar', authMiddleware, registrarGranjero);
+
+// Verificar Estado
 app.get('/api/health', (req, res) => res.json({ 
     status: 'ok', 
     db_host: process.env.DB_HOST,
     db_name: process.env.DB_NAME,
-    tables: ['granjas', 'galpones', 'lotes', 'control_diario']
+    tables: ['granjas', 'galpones', 'lotes', 'control_diario', 'usuarios']
 }));
 
 // Iniciar servidor
@@ -64,6 +78,7 @@ async function startServer() {
             console.log(`   POST /api/registros - Guardar registro diario`);
             console.log(`   GET /api/registros - Obtener registros`);
             console.log(`   GET /api/lote-activo/:id_galpon - Obtener lote activo`);
+            console.log(`   POST /api/usuarios/registrar - [NUEVO] Registrar Granjero (Supervisor)`);
             console.log(`   GET /api/health - Verificar estado\n`);
         });
     } else {

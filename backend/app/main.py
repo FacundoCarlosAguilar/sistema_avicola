@@ -36,6 +36,13 @@ class LoginResponse(BaseModel):
     token_type: str
     rol: str
     nombre: str
+    
+class RegisterRequest(BaseModel):
+    nombre: str
+    usuario: str
+    password: str
+    perfil: str  # Ejemplo: 'granjero'
+    id_granja_asignada: int
 
 # ============ CONFIGURACIÓN JWT ============
 SECRET_KEY = "mi_clave_secreta_para_jwt"
@@ -79,6 +86,44 @@ def login(request: LoginRequest):
         rol=usuario['perfil'],
         nombre=usuario['nombre']
     )
+    
+    
+# ============ ENDPOINT PARA REGISTRAR USUARIOS (SUPERVISOR) ============
+@app.post("/auth/registrar")
+def registrar_usuario(request: RegisterRequest):
+    # Nota: Aquí deberías validar el token JWT del supervisor para máxima seguridad,
+    # pero para empezar, agregamos la lógica directa en la base de datos.
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(dictionary=True)
+        
+        # Verificar si el nombre de usuario ya existe
+        cursor.execute("SELECT id FROM usuarios WHERE usuario = %s", (request.usuario,))
+        if cursor.fetchone():
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya está registrado")
+        
+        # Insertar el nuevo usuario (Guardando password_hash directo temporalmente como en tu login)
+        cursor.execute("""
+            INSERT INTO usuarios (nombre, usuario, password_hash, perfil, id_granja_asignada)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (
+            request.nombre,
+            request.usuario,
+            request.password,  # Idealmente aquí usarías hashing, pero mantenemos tu lógica actual
+            request.perfil,
+            request.id_granja_asignada
+        ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return {"success": True, "message": f"Usuario {request.usuario} creado con éxito"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en la base de datos: {str(e)}")
+    
 
 # ============ ENDPOINTS DE PRUEBA ============
 @app.get("/api/ver-datos")
@@ -127,7 +172,7 @@ def ver_lotes():
     conn.close()
     return lotes
 
-# ============ MODELOS PARA REGISTRO DIARIO ============
+# ============ MODELO DE REGISTRO DIARIO (VOLVEMOS AL ORIGINAL, MÁS SIMPLE) ============
 class RegistroDiario(BaseModel):
     fecha: str
     mortandad: int
@@ -135,6 +180,7 @@ class RegistroDiario(BaseModel):
     alimento_kg: float
     novedades: str = ""
     id_lote: int
+    id_usuario_granjero: int  # <--- Solo le pedimos al frontend el ID del usuario que logueó
 
 class RespuestaRegistro(BaseModel):
     success: bool
@@ -143,23 +189,57 @@ class RespuestaRegistro(BaseModel):
     alerta: bool = False
     error: str = ""
 
-# ============ ENDPOINT PARA GUARDAR REGISTRO DIARIO ============
+# ============ ENDPOINT PARA GUARDAR REGISTRO DIARIO (ULTRA SEGURO) ============
 @app.post("/api/registros")
 def guardar_registro_diario(registro: RegistroDiario):
-    print(f"📝 Recibido: {registro}")
+    print(f"📝 Recibido registro del usuario: {registro.id_usuario_granjero}")
     
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        # Verificar si ya existe registro para esa fecha
+        # 1. BUSCAR LA GRANJA ASIGNADA AL GRANJERO
+        cursor.execute(
+            "SELECT id_granja_asignada FROM usuarios WHERE id = %s", 
+            (registro.id_usuario_granjero,)
+        )
+        usuario_info = cursor.fetchone()
+        
+        if not usuario_info or usuario_info['id_granja_asignada'] is None:
+            cursor.close()
+            conn.close()
+            return RespuestaRegistro(
+                success=False,
+                message="Error de permisos",
+                error="El usuario no tiene una granja asignada."
+            )
+            
+        id_granja_granjero = usuario_info['id_granja_asignada']
+        
+        # 2. VERIFICAR SI EL LOTE QUE QUIERE MODIFICAR PERTENECE A SU GRANJA
+        cursor.execute("""
+            SELECT g.id_granja 
+            FROM lotes l
+            JOIN galpones g ON l.id_galpon = g.id
+            WHERE l.id = %s
+        """, (registro.id_lote,))
+        lote_info = cursor.fetchone()
+        
+        if not lote_info or lote_info['id_granja'] != id_granja_granjero:
+            cursor.close()
+            conn.close()
+            return RespuestaRegistro(
+                success=False,
+                message="Acceso denegado",
+                error="Este lote pertenece a un galpón de otra granja que no tenés asignada."
+            )
+        
+        # 3. VERIFICAR DUPLICADOS (Tu lógica original)
         cursor.execute(
             "SELECT id FROM control_diario WHERE fecha = %s AND id_lote = %s",
             (registro.fecha, registro.id_lote)
         )
-        existe = cursor.fetchone()
-        
-        if existe:
+        if cursor.fetchone():
             cursor.close()
             conn.close()
             return RespuestaRegistro(
@@ -168,7 +248,7 @@ def guardar_registro_diario(registro: RegistroDiario):
                 error="duplicado"
             )
         
-        # Insertar nuevo registro
+        # 4. INSERTAR EL REGISTRO (Mortandad e ingreso de alimento)
         cursor.execute("""
             INSERT INTO control_diario 
             (fecha, mortandad, aves_vivas, alimento_kg, novedades, id_lote) 
@@ -184,7 +264,7 @@ def guardar_registro_diario(registro: RegistroDiario):
         
         conn.commit()
         
-        # Calcular porcentaje de mortandad del lote
+        # 5. CALCULAR PORCENTAJES (Tu lógica original)
         cursor.execute("""
             SELECT 
                 l.cantidad_aves as cantidad_inicial,
@@ -200,12 +280,9 @@ def guardar_registro_diario(registro: RegistroDiario):
         conn.close()
         
         porcentaje = 0
-        total_muertes = 0
         if stats and stats['cantidad_inicial']:
             total_muertes = stats['total_muertes'] or 0
             porcentaje = round((total_muertes / stats['cantidad_inicial']) * 100, 2)
-        
-        print(f"✅ Registro guardado. Mortandad acumulada: {porcentaje}%")
         
         return RespuestaRegistro(
             success=True,
@@ -218,7 +295,7 @@ def guardar_registro_diario(registro: RegistroDiario):
         print(f"❌ Error: {e}")
         return RespuestaRegistro(
             success=False,
-            message="Error al guardar",
+            message="Error al guardar en el servidor",
             error=str(e)
         )
 
@@ -272,22 +349,22 @@ def obtener_registros(fechaInicio: str = "", fechaFin: str = ""):
         print(f"❌ Error: {e}")
         return []
 
-# ============ ENDPOINT PARA OBTENER LOTE ACTIVO ============
+# ============ ENDPOINT PARA OBTENER LOTE ACTIVO (MODIFICADO) ============
 @app.get("/api/lote-activo/{id_galpon}")
-def obtener_lote_activo(id_galpon: int):
+def obtener_lote_activo(id_galpon: int, id_granja_usuario: int = None):
     try:
         conn = get_db_connection()
         cursor = conn.cursor(dictionary=True)
         
-        cursor.execute("""
-            SELECT l.*, g.nombre as galpon_nombre
+        # Modificamos la consulta para verificar que el galpón pertenezca a la granja del usuario
+        query = """
+            SELECT l.*, g.nombre as galpon_nombre, g.id_granja
             FROM lotes l
             JOIN galpones g ON l.id_galpon = g.id
             WHERE l.id_galpon = %s AND l.activo = 1
-            ORDER BY l.fecha_ingreso DESC
-            LIMIT 1
-        """, (id_galpon,))
+        """
         
+        cursor.execute(query, (id_galpon,))
         lote = cursor.fetchone()
         
         if not lote:
@@ -295,7 +372,13 @@ def obtener_lote_activo(id_galpon: int):
             conn.close()
             return {"existe": False}
         
-        # Calcular estadísticas de mortandad
+        # VALIDACIÓN SEGURIDAD: Si se pasa la granja del usuario, verificar que coincida
+        if id_granja_usuario and lote['id_granja'] != id_granja_usuario:
+            cursor.close()
+            conn.close()
+            raise HTTPException(status_code=403, detail="No tenés permiso para acceder a este galpón/granja")
+        
+        # Calcular estadísticas de mortandad (Tu código original sigue igual acá abajo)
         cursor.execute("""
             SELECT 
                 COALESCE(SUM(mortandad), 0) as total_muertes,
@@ -323,7 +406,6 @@ def obtener_lote_activo(id_galpon: int):
     except Exception as e:
         print(f"❌ Error: {e}")
         return {"existe": False, "error": str(e)}
-
 # ============ ENDPOINTS PRINCIPALES ============
 @app.on_event("startup")
 async def startup():

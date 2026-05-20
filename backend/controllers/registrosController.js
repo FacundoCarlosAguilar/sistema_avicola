@@ -1,6 +1,6 @@
 const { pool } = require('../config/database');
 
-// Guardar registro diario (mortalidad + alimento) en control_diario
+// Guardar registro diario (mortalidad + alimento) - ¡AHORA PROTEGIDO!
 async function guardarRegistroDiario(req, res) {
     const { 
         fecha, 
@@ -8,7 +8,8 @@ async function guardarRegistroDiario(req, res) {
         aves_vivas, 
         alimento_kg, 
         novedades, 
-        id_lote 
+        id_lote,
+        id_usuario_granjero // <-- Pedimos el ID de quien carga el dato
     } = req.body;
     
     try {
@@ -17,8 +18,32 @@ async function guardarRegistroDiario(req, res) {
         if (fecha > hoy) {
             return res.status(400).json({ error: 'No se permiten fechas futuras' });
         }
+
+        // 1. VALIDACIÓN: Buscar la granja asignada al granjero
+        const [usuario] = await pool.query(
+            'SELECT id_granja_asignada FROM usuarios WHERE id = ?',
+            [id_usuario_granjero]
+        );
+
+        if (usuario.length === 0 || usuario[0].id_granja_asignada === null) {
+            return res.status(403).json({ error: 'El usuario no tiene una granja asignada.' });
+        }
+        const idGranjaGranjero = usuario[0].id_granja_asignada;
+
+        // 2. VALIDACIÓN: Verificar si el lote pertenece a la granja del granjero
+        const [loteInfo] = await pool.query(
+            `SELECT g.id_granja 
+             FROM lotes l
+             JOIN galpones g ON l.id_galpon = g.id
+             WHERE l.id = ?`,
+            [id_lote]
+        );
+
+        if (loteInfo.length === 0 || loteInfo[0].id_granja !== idGranjaGranjero) {
+            return res.status(403).json({ error: 'Acceso denegado. Este lote no pertenece a tu granja asignada.' });
+        }
         
-        // Verificar si ya existe registro para esa fecha y lote
+        // 3. Verificar duplicados
         const [existente] = await pool.query(
             'SELECT id FROM control_diario WHERE fecha = ? AND id_lote = ?',
             [fecha, id_lote]
@@ -53,7 +78,7 @@ async function guardarRegistroDiario(req, res) {
         
         res.json({
             success: true,
-            message: 'Registro guardado en Hostinger',
+            message: 'Registro guardado en Hostinger de manera segura',
             porcentaje: porcentaje,
             alerta: porcentaje > 5
         });
@@ -64,11 +89,18 @@ async function guardarRegistroDiario(req, res) {
     }
 }
 
-// Obtener registros de control_diario
+// Obtener registros de control_diario - ¡AHORA FILTRADO POR GRANJA!
 async function obtenerRegistros(req, res) {
-    const { fechaInicio, fechaFin, id_lote } = req.query;
+    const { fechaInicio, fechaFin, id_lote, id_usuario_granjero, perfil_usuario } = req.query;
     
     try {
+        // Buscamos la granja si es un granjero para obligar al filtro
+        let idGranjaAsignada = null;
+        if (perfil_usuario === 'granjero') {
+            const [user] = await pool.query('SELECT id_granja_asignada FROM usuarios WHERE id = ?', [id_usuario_granjero]);
+            if (user.length > 0) idGranjaAsignada = user[0].id_granja_asignada;
+        }
+
         let query = `
             SELECT c.*, l.cantidad_aves, g.nombre as galpon_nombre, gr.nombre as granja_nombre
             FROM control_diario c
@@ -79,6 +111,12 @@ async function obtenerRegistros(req, res) {
         `;
         let params = [fechaInicio, fechaFin];
         
+        // Si es granjero, forzar que solo traiga lo de su granja
+        if (perfil_usuario === 'granjero' && idGranjaAsignada) {
+            query += ' AND gr.id = ?';
+            params.push(idGranjaAsignada);
+        }
+
         if (id_lote) {
             query += ' AND c.id_lote = ?';
             params.push(id_lote);
@@ -95,13 +133,14 @@ async function obtenerRegistros(req, res) {
     }
 }
 
-// Obtener lote activo por galpón
+// Obtener lote activo por galpón - ¡AHORA COMPROBANDO PERMISOS!
 async function obtenerLoteActivo(req, res) {
     const { id_galpon } = req.params;
+    const { id_usuario_granjero, perfil_usuario } = req.query; // Filtros opcionales de seguridad
     
     try {
         const [lote] = await pool.query(`
-            SELECT l.*, g.nombre as galpon_nombre
+            SELECT l.*, g.nombre as galpon_nombre, g.id_granja
             FROM lotes l
             JOIN galpones g ON l.id_galpon = g.id
             WHERE l.id_galpon = ? AND l.activo = 1
@@ -111,6 +150,14 @@ async function obtenerLoteActivo(req, res) {
         
         if (lote.length === 0) {
             return res.json({ existe: false });
+        }
+
+        // CONTROL: Si es un granjero, verificar que no intente fisgar un galpón ajeno
+        if (perfil_usuario === 'granjero') {
+            const [user] = await pool.query('SELECT id_granja_asignada FROM usuarios WHERE id = ?', [id_usuario_granjero]);
+            if (user.length === 0 || user[0].id_granja_asignada !== lote[0].id_granja) {
+                return res.status(403).json({ error: 'No tenés permisos sobre este galpón' });
+            }
         }
         
         // Obtener estadísticas de mortandad
@@ -130,7 +177,7 @@ async function obtenerLoteActivo(req, res) {
             existe: true,
             lote: lote[0],
             total_muertes: stats[0].total_muertes,
-            porcentaje_mortandad: porcentaje,
+            percentage_mortandad: porcentaje,
             alerta: porcentaje > 5
         });
         

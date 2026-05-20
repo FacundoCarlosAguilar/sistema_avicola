@@ -27,6 +27,9 @@ import {
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../styles/theme';
 
+// 🌟 NUEVO: Acá importamos tu formulario
+import FormularioGranjero from '../components/FormularioGranjero';
+
 function DashboardSupervisor() {
     const [granjas, setGranjas] = useState([]);
     const [lotes, setLotes] = useState([]);
@@ -73,12 +76,10 @@ function DashboardSupervisor() {
     };
 
     const handleDeleteGranja = (id) => {
-        // Acá iría tu llamado DELETE al backend
         console.log("Eliminando granja con id:", id);
-        
-        // Actualizamos visualmente la tabla filtrando la que borramos
         setGranjas(granjas.filter(g => g.id !== id));
     };
+
     const nombre = localStorage.getItem('nombre');
     const navigate = useNavigate();
 
@@ -90,8 +91,8 @@ function DashboardSupervisor() {
         setLoading(true);
         try {
             const [granjasRes, lotesRes] = await Promise.all([
-                fetch('http://localhost:8000/api/granjas'),
-                fetch('http://localhost:8000/api/lotes')
+                fetch('http://localhost:3000/api/granjas'),
+                fetch('http://localhost:3000/api/lotes')
             ]);
             setGranjas(await granjasRes.json());
             setLotes(await lotesRes.json());
@@ -404,6 +405,11 @@ function DashboardSupervisor() {
                             </Card>
                         </Grid>
                     </Grid>
+
+                    {/* 🌟 NUEVO: Acá metemos el formulario de granjeros */}
+                    <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+                        <FormularioGranjero />
+                    </Box>
 
                     {/* Rendimiento */}
                     <Card sx={{ mt: 3 }}>
