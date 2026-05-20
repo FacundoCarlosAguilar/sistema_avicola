@@ -34,10 +34,14 @@ function DashboardSupervisor() {
     const [granjas, setGranjas] = useState([]);
     const [lotes, setLotes] = useState([]);
     const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
     const [anchorEl, setAnchorEl] = useState(null);
     const [openModal, setOpenModal] = useState(false);
     const [modalMode, setModalMode] = useState('view');
     const [granjaActual, setGranjaActual] = useState({ nombre: '', ubicacion: '', activa: 1 });
+    const [openLoteModal, setOpenLoteModal] = useState(false);
+    const [loteMode, setLoteMode] = useState('view');
+    const [loteActual, setLoteActual] = useState({ fecha_ingreso: '', cantidad_aves: '', proveedor: '', id_galpon: '', cantidad_galpon: '',  activo: 1 });
     const [openPrefs, setOpenOpenPrefs] = useState(false);
     const [darkMode, setDarkMode] = useState(false); 
 
@@ -81,7 +85,6 @@ function DashboardSupervisor() {
     };
 
     const nombre = localStorage.getItem('nombre');
-    const navigate = useNavigate();
 
     useEffect(() => {
         cargarDatos();
@@ -155,7 +158,7 @@ function DashboardSupervisor() {
 
     const quickActions = [
         { label: 'Gestión de Granjas', icon: <BusinessIcon />, action: () => alert('Módulo en desarrollo') },
-        { label: 'Gestión de Lotes', icon: <LoteIcon />, action: () => alert('Módulo en desarrollo') },
+        { label: 'Gestión de Lotes', icon: <LoteIcon />, action: () => navigate('/gestion-lotes') },
         { label: 'Usuarios y Roles', icon: <UsersIcon />, action: () => alert('Módulo en desarrollo') },
         { label: 'Trazabilidad Sanitaria', icon: <HealthIcon />, action: () => alert('Módulo en desarrollo') },
         { label: 'Reportes Ejecutivos', icon: <ReportIcon />, action: () => alert('Módulo en desarrollo') },
